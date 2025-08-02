@@ -114,6 +114,5 @@ Private - Mythiq AI Platform
 This is a private project for the Mythiq AI platform.
 
 ---
-
 **Built with ❤️ for the Mythiq AI Creative Platform**
 
