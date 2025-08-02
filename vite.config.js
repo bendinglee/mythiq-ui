@@ -16,7 +16,10 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     port: process.env.PORT || 4173,
-    allowedHosts: ['healthcheck.railway.app']
+    allowedHosts: [
+      'healthcheck.railway.app',
+      'mythiq-ui-production.up.railway.app'
+    ]
   },
   build: {
     outDir: 'dist',
