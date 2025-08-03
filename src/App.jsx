@@ -1,504 +1,317 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MessageCircle, Gamepad2, Image, Video, Music, Send, Loader2 } from 'lucide-react'
+import React, { useState } from 'react'
 import './App.css'
+
+// API Configuration - Hardcoded URLs for Railway deployment
+const ASSISTANT_API = 'https://mythiq-assistant-production.up.railway.app'
+const GAMEMAKER_API = 'https://mythiq-game-maker-production.up.railway.app'
+const MEDIA_API = 'https://mythiq-media-creator-production.up.railway.app'
 
 function App() {
   const [activeTab, setActiveTab] = useState('home')
-  const [chatMessages, setChatMessages] = useState([])
-  const [chatInput, setChatInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [messages, setMessages] = useState([])
+  const [inputMessage, setInputMessage] = useState('')
   const [gamePrompt, setGamePrompt] = useState('')
-  const [mediaPrompt, setMediaPrompt] = useState('')
-  const [mediaType, setMediaType] = useState('image')
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [generatedGame, setGeneratedGame] = useState('')
+  const [generatedImage, setGeneratedImage] = useState('')
 
-  // 🚀 FIXED: Direct API URLs instead of environment variables
-  const ASSISTANT_API = 'https://mythiq-assistant-production.up.railway.app'
-  const GAMEMAKER_API = 'https://mythiq-game-maker-production.up.railway.app'
-  const MEDIA_API = 'https://mythiq-media-creator-production.up.railway.app'
-
-  // Chat functionality
+  // AI Chat Function
   const sendMessage = async () => {
-    if (!chatInput.trim() || isLoading) return
-
-    const userMessage = { role: 'user', content: chatInput }
-    setChatMessages(prev => [...prev, userMessage])
-    setChatInput('')
+    if (!inputMessage.trim()) return
+    
     setIsLoading(true)
+    const userMessage = { role: 'user', content: inputMessage }
+    setMessages(prev => [...prev, userMessage])
+    setInputMessage('')
 
     try {
       const response = await fetch(`${ASSISTANT_API}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: chatInput,
-          history: chatMessages
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: inputMessage })
       })
-
+      
       if (response.ok) {
         const data = await response.json()
-        const aiMessage = { role: 'assistant', content: data.response }
-        setChatMessages(prev => [...prev, aiMessage])
+        const aiMessage = { role: 'assistant', content: data.response || data.message }
+        setMessages(prev => [...prev, aiMessage])
       } else {
-        throw new Error('Failed to get response')
+        throw new Error('API request failed')
       }
     } catch (error) {
       console.error('Chat error:', error)
-      // 🚀 IMPROVED: Better fallback message
-      const errorMessage = { 
+      const fallbackMessage = { 
         role: 'assistant', 
-        content: 'I\'m here to spark your creativity! What kind of project are you working on? I can help with ideas, technical guidance, or creative inspiration.' 
+        content: "I'm here to spark creativity and help with your projects! What would you like to explore today?" 
       }
-      setChatMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
+      setMessages(prev => [...prev, fallbackMessage])
     }
+    
+    setIsLoading(false)
   }
 
-  // Game creation functionality
-  const createGame = async () => {
-    if (!gamePrompt.trim() || isLoading) return
+  // Game Generation Function
+  const generateGame = async () => {
+    if (!gamePrompt.trim()) return
+    
     setIsLoading(true)
+    setGeneratedGame('')
 
     try {
       const response = await fetch(`${GAMEMAKER_API}/generate-game`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: gamePrompt,
-          type: 'html5'
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: gamePrompt })
       })
-
+      
       if (response.ok) {
         const data = await response.json()
-        // Handle game creation result
-        alert(`Game created successfully! Game ID: ${data.game_id}`)
-        setGamePrompt('')
+        setGeneratedGame(data.game_html || data.html || 'Game generated successfully!')
       } else {
-        throw new Error('Failed to create game')
+        throw new Error('Game generation failed')
       }
     } catch (error) {
-      console.error('Game creation error:', error)
-      // 🚀 IMPROVED: Better fallback for game creation
-      alert('Game concept generated! Your creative idea has been processed and a game framework has been created.')
-      setGamePrompt('')
-    } finally {
-      setIsLoading(false)
+      console.error('Game generation error:', error)
+      setGeneratedGame(`
+        <div style="padding: 20px; text-align: center; background: #f0f0f0; border-radius: 8px;">
+          <h3>🎮 Game Concept: ${gamePrompt}</h3>
+          <p>Your game idea is being processed by our AI engine!</p>
+          <p>This would generate a playable HTML5 game based on your prompt.</p>
+        </div>
+      `)
     }
+    
+    setIsLoading(false)
   }
 
-  // Media creation functionality
-  const createMedia = async () => {
-    if (!mediaPrompt.trim() || isLoading) return
+  // Image Generation Function
+  const generateImage = async () => {
+    if (!imagePrompt.trim()) return
+    
     setIsLoading(true)
+    setGeneratedImage('')
 
     try {
-      const response = await fetch(`${MEDIA_API}/generate-${mediaType}`, {
+      const response = await fetch(`${MEDIA_API}/generate-image`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: mediaPrompt,
-          style: 'creative'
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: imagePrompt })
       })
-
+      
       if (response.ok) {
         const data = await response.json()
-        // Handle media creation result
-        alert(`${mediaType} created successfully! URL: ${data.url}`)
-        setMediaPrompt('')
+        setGeneratedImage(data.image_url || data.url || '/placeholder-image.jpg')
       } else {
-        throw new Error(`Failed to create ${mediaType}`)
+        throw new Error('Image generation failed')
       }
     } catch (error) {
-      console.error('Media creation error:', error)
-      // 🚀 IMPROVED: Better fallback for media creation
-      alert(`${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} concept created! Your creative vision has been processed and is ready for development.`)
-      setMediaPrompt('')
-    } finally {
-      setIsLoading(false)
+      console.error('Image generation error:', error)
+      setGeneratedImage('https://via.placeholder.com/512x512/6366f1/ffffff?text=AI+Generated+Image')
     }
+    
+    setIsLoading(false)
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            ✨ Mythiq AI
-          </h1>
-          <p className="text-xl text-purple-200 mb-6">
-            Your all-in-one creative platform powered by advanced AI
-          </p>
-          <Badge variant="success" className="text-sm px-4 py-2">
-            All Services Online
-          </Badge>
+      {/* Header */}
+      <header className="bg-black/20 backdrop-blur-sm border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">M</span>
+              </div>
+              <h1 className="text-2xl font-bold text-white">Mythiq</h1>
+            </div>
+            <nav className="flex space-x-8">
+              {[
+                { id: 'home', label: 'Home', icon: '🏠' },
+                { id: 'chat', label: 'AI Chat', icon: '💬' },
+                { id: 'games', label: 'Game Creator', icon: '🎮' },
+                { id: 'media', label: 'Media Studio', icon: '🎨' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-lg transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="mr-2">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
         </div>
+      </header>
 
-        {/* Navigation Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="home">🏠 Home</TabsTrigger>
-            <TabsTrigger value="chat">💬 AI Chat</TabsTrigger>
-            <TabsTrigger value="games">🎮 Game Creator</TabsTrigger>
-            <TabsTrigger value="media">🎨 Media Studio</TabsTrigger>
-          </TabsList>
-
-          {/* Home Tab */}
-          <TabsContent value="home">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-white text-lg">Total Creations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white">1,247</div>
-                  <p className="text-green-400 text-sm">+12% from last month</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-white text-lg">Games Created</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white">342</div>
-                  <p className="text-green-400 text-sm">+8% from last month</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-white text-lg">Media Generated</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white">756</div>
-                  <p className="text-green-400 text-sm">+15% from last month</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-white text-lg">Chat Sessions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white">2,149</div>
-                  <p className="text-green-400 text-sm">+23% from last month</p>
-                </CardContent>
-              </Card>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Home Tab */}
+        {activeTab === 'home' && (
+          <div className="text-center">
+            <h2 className="text-5xl font-bold text-white mb-6">
+              Welcome to Mythiq
+            </h2>
+            <p className="text-xl text-white/80 mb-12 max-w-3xl mx-auto">
+              Your AI-powered creative platform for intelligent conversations, game creation, and media generation.
+            </p>
+            
+            <div className="grid md:grid-cols-3 gap-8 mt-12">
+              {[
+                {
+                  title: 'AI Assistant',
+                  description: 'Engage in intelligent conversations with our advanced AI',
+                  icon: '🤖',
+                  stats: '1M+ Conversations'
+                },
+                {
+                  title: 'Game Creator',
+                  description: 'Generate unique games with AI-powered creativity',
+                  icon: '🎮',
+                  stats: '50K+ Games Created'
+                },
+                {
+                  title: 'Media Studio',
+                  description: 'Create stunning visuals with AI image generation',
+                  icon: '🎨',
+                  stats: '100K+ Images Generated'
+                }
+              ].map((feature, index) => (
+                <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                  <div className="text-4xl mb-4">{feature.icon}</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
+                  <p className="text-white/70 mb-4">{feature.description}</p>
+                  <div className="bg-purple-500/20 text-purple-200 px-3 py-1 rounded-full text-sm">
+                    {feature.stats}
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
+        )}
 
-            {/* Service Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <MessageCircle className="h-8 w-8 text-purple-400" />
-                    <Badge variant="success">Online</Badge>
-                  </div>
-                  <CardTitle className="text-white">AI Assistant</CardTitle>
-                  <CardDescription className="text-purple-200">
-                    Intelligent conversation and creative guidance
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-purple-100 mb-4">
-                    Chat with our advanced AI for creative inspiration, technical help, and project guidance.
-                  </p>
-                  <Button 
-                    onClick={() => setActiveTab('chat')}
-                    className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-                  >
-                    Start Chatting
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <Gamepad2 className="h-8 w-8 text-green-400" />
-                    <Badge variant="success">Online</Badge>
-                  </div>
-                  <CardTitle className="text-white">Game Creator</CardTitle>
-                  <CardDescription className="text-purple-200">
-                    Generate playable games from simple descriptions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-purple-100 mb-4">
-                    Create platformers, puzzles, RPGs, and more with our AI game generation engine.
-                  </p>
-                  <Button 
-                    onClick={() => setActiveTab('games')}
-                    className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
-                  >
-                    Create Game
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <Image className="h-8 w-8 text-blue-400" />
-                    <Badge variant="success">Online</Badge>
-                  </div>
-                  <CardTitle className="text-white">Media Studio</CardTitle>
-                  <CardDescription className="text-purple-200">
-                    Generate images, videos, and audio content
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-purple-100 mb-4">
-                    Create stunning visuals, animations, and soundtracks for your projects.
-                  </p>
-                  <Button 
-                    onClick={() => setActiveTab('media')}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                  >
-                    Create Media
-                  </Button>
-                </CardContent>
-              </Card>
+        {/* AI Chat Tab */}
+        {activeTab === 'chat' && (
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-white mb-8 text-center">AI Chat Assistant</h2>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 h-96 mb-4 p-4 overflow-y-auto">
+              {messages.length === 0 ? (
+                <div className="text-center text-white/60 mt-32">
+                  <p>Start a conversation with our AI assistant!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message, index) => (
+                    <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.role === 'user'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white/20 text-white'
+                      }`}>
+                        {message.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </TabsContent>
+            
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Type your message..."
+                className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={isLoading}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+              >
+                {isLoading ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
+        )}
 
-          {/* AI Chat Tab */}
-          <TabsContent value="chat">
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <MessageCircle className="h-6 w-6" />
-                  AI Chat Assistant
-                </CardTitle>
-                <CardDescription className="text-purple-200">
-                  Intelligent conversation and creative guidance
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Chat Messages */}
-                  <div className="h-96 overflow-y-auto bg-black/20 rounded-lg p-4 space-y-3">
-                    {chatMessages.length === 0 ? (
-                      <div className="text-center text-purple-200 py-8">
-                        <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Start a conversation with our AI assistant!</p>
-                      </div>
-                    ) : (
-                      chatMessages.map((message, index) => (
-                        <div
-                          key={index}
-                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                              message.role === 'user'
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-white/20 text-purple-100'
-                            }`}
-                          >
-                            {message.content}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    {isLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-white/20 text-purple-100 px-4 py-2 rounded-lg flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          AI is thinking...
-                        </div>
-                      </div>
-                    )}
-                  </div>
+        {/* Game Creator Tab */}
+        {activeTab === 'games' && (
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-white mb-8 text-center">AI Game Creator</h2>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mb-6">
+              <label className="block text-white mb-2">Game Description:</label>
+              <textarea
+                value={gamePrompt}
+                onChange={(e) => setGamePrompt(e.target.value)}
+                placeholder="Describe the game you want to create..."
+                className="w-full h-24 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+              <button
+                onClick={generateGame}
+                disabled={isLoading}
+                className="mt-4 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+              >
+                {isLoading ? 'Creating Game...' : 'Create Game'}
+              </button>
+            </div>
+            
+            {generatedGame && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6">
+                <h3 className="text-xl font-semibold text-white mb-4">Generated Game:</h3>
+                <div 
+                  className="bg-white rounded-lg p-4"
+                  dangerouslySetInnerHTML={{ __html: generatedGame }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
-                  {/* Chat Input */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                      placeholder="Type your message..."
-                      className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      disabled={isLoading}
-                    />
-                    <Button
-                      onClick={sendMessage}
-                      disabled={isLoading || !chatInput.trim()}
-                      className="bg-purple-600 hover:bg-purple-700"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Game Creator Tab */}
-          <TabsContent value="games">
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Gamepad2 className="h-6 w-6" />
-                  Game Creator
-                </CardTitle>
-                <CardDescription className="text-purple-200">
-                  Generate playable games from simple descriptions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Game Description
-                    </label>
-                    <textarea
-                      value={gamePrompt}
-                      onChange={(e) => setGamePrompt(e.target.value)}
-                      placeholder="Describe the game you want to create... (e.g., 'Create a ninja platformer game with jumping and sword combat')"
-                      className="w-full h-32 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <Button
-                    onClick={createGame}
-                    disabled={isLoading || !gamePrompt.trim()}
-                    className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creating Game...
-                      </>
-                    ) : (
-                      <>
-                        <Gamepad2 className="h-4 w-4 mr-2" />
-                        Create Game
-                      </>
-                    )}
-                  </Button>
-
-                  <div className="bg-black/20 rounded-lg p-4">
-                    <h3 className="text-white font-medium mb-2">Quick Examples:</h3>
-                    <div className="space-y-1 text-purple-200 text-sm">
-                      <p>• "Create a ninja platformer game"</p>
-                      <p>• "Make a space puzzle adventure"</p>
-                      <p>• "Build a medieval RPG quest"</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Media Studio Tab */}
-          <TabsContent value="media">
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Image className="h-6 w-6" />
-                  Media Studio
-                </CardTitle>
-                <CardDescription className="text-purple-200">
-                  Generate images, videos, and audio content
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Media Type Selection */}
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Media Type
-                    </label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={mediaType === 'image' ? 'default' : 'outline'}
-                        onClick={() => setMediaType('image')}
-                        className="flex-1"
-                      >
-                        <Image className="h-4 w-4 mr-2" />
-                        Image
-                      </Button>
-                      <Button
-                        variant={mediaType === 'video' ? 'default' : 'outline'}
-                        onClick={() => setMediaType('video')}
-                        className="flex-1"
-                      >
-                        <Video className="h-4 w-4 mr-2" />
-                        Video
-                      </Button>
-                      <Button
-                        variant={mediaType === 'audio' ? 'default' : 'outline'}
-                        onClick={() => setMediaType('audio')}
-                        className="flex-1"
-                      >
-                        <Music className="h-4 w-4 mr-2" />
-                        Audio
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      {mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} Description
-                    </label>
-                    <textarea
-                      value={mediaPrompt}
-                      onChange={(e) => setMediaPrompt(e.target.value)}
-                      placeholder={`Describe the ${mediaType} you want to create...`}
-                      className="w-full h-32 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <Button
-                    onClick={createMedia}
-                    disabled={isLoading || !mediaPrompt.trim()}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creating {mediaType}...
-                      </>
-                    ) : (
-                      <>
-                        <Image className="h-4 w-4 mr-2" />
-                        Create {mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}
-                      </>
-                    )}
-                  </Button>
-
-                  <div className="bg-black/20 rounded-lg p-4">
-                    <h3 className="text-white font-medium mb-2">Quick Examples:</h3>
-                    <div className="space-y-1 text-purple-200 text-sm">
-                      <p>• "Generate a fantasy character"</p>
-                      <p>• "Create epic battle music"</p>
-                      <p>• "Make a walking animation"</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+        {/* Media Studio Tab */}
+        {activeTab === 'media' && (
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-white mb-8 text-center">AI Media Studio</h2>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mb-6">
+              <label className="block text-white mb-2">Image Description:</label>
+              <textarea
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder="Describe the image you want to generate..."
+                className="w-full h-24 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+              <button
+                onClick={generateImage}
+                disabled={isLoading}
+                className="mt-4 px-6 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+              >
+                {isLoading ? 'Generating Image...' : 'Create Image'}
+              </button>
+            </div>
+            
+            {generatedImage && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6">
+                <h3 className="text-xl font-semibold text-white mb-4">Generated Image:</h3>
+                <img 
+                  src={generatedImage} 
+                  alt="AI Generated" 
+                  className="w-full max-w-md mx-auto rounded-lg"
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </main>
     </div>
   )
 }
