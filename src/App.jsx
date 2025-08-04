@@ -6,6 +6,7 @@ const ASSISTANT_API = 'https://mythiq-assistant-production.up.railway.app'
 const GAMEMAKER_API = 'https://mythiq-game-maker-production.up.railway.app'
 const MEDIA_API = 'https://mythiq-media-creator-production.up.railway.app'
 const AUDIO_API = 'https://mythiq-audio-creator-production.up.railway.app'
+const VIDEO_API = 'https://mythiq-video-creator-production.up.railway.app'
 
 function App() {
   const [activeTab, setActiveTab] = useState('home')
@@ -27,9 +28,18 @@ function App() {
   const [voicePresets, setVoicePresets] = useState([])
   const [selectedVoice, setSelectedVoice] = useState('v2/en_speaker_6')
 
-  // Load voice presets on component mount
+  // Video Studio states - NEW
+  const [videoPrompt, setVideoPrompt] = useState('')
+  const [videoDuration, setVideoDuration] = useState(6)
+  const [videoModelType, setVideoModelType] = useState('auto')
+  const [generatedVideo, setGeneratedVideo] = useState('')
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false)
+  const [videoModels, setVideoModels] = useState({})
+
+  // Load voice presets and video models on component mount
   useEffect(() => {
     loadVoicePresets()
+    loadVideoModels()
   }, [])
 
   const loadVoicePresets = async () => {
@@ -45,7 +55,21 @@ function App() {
     }
   }
 
-  // AI Chat Handler - FIXED to use 'content' field
+  // NEW: Load video models
+  const loadVideoModels = async () => {
+    try {
+      const response = await fetch(`${VIDEO_API}/video-models`)
+      const data = await response.json()
+      
+      if (data.success && data.models) {
+        setVideoModels(data.models)
+      }
+    } catch (error) {
+      console.error('Error loading video models:', error)
+    }
+  }
+
+  // AI Chat Handler - PRESERVED WORKING VERSION
   const handleChatSubmit = async (e) => {
     e.preventDefault()
     if (!currentMessage.trim() || isLoading) return
@@ -69,7 +93,7 @@ function App() {
         const data = await response.json()
         console.log('✅ Chat response received:', data)
         
-        // FIXED: Use 'content' field from backend response
+        // PRESERVED: Use 'content' field from backend response
         const aiResponse = data.content || data.response || 'AI response received'
         
         setMessages(prev => [...prev, { 
@@ -90,7 +114,7 @@ function App() {
     }
   }
 
-  // Game Creator Handler - FIXED to use 'prompt' field and 'game_html' response
+  // Game Creator Handler - PRESERVED WORKING VERSION
   const handleGameSubmit = async (e) => {
     e.preventDefault()
     if (!gameDescription.trim() || isGeneratingGame) return
@@ -105,7 +129,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        // FIXED: Use 'prompt' instead of 'description'
+        // PRESERVED: Use 'prompt' instead of 'description'
         body: JSON.stringify({ prompt: gameDescription })
       })
 
@@ -113,7 +137,7 @@ function App() {
         const data = await response.json()
         console.log('✅ Game response received:', data)
         
-        // FIXED: Use 'game_html' field from backend response
+        // PRESERVED: Use 'game_html' field from backend response
         const gameHtml = data.game_html || data.html || 'Game generated successfully!'
         setGeneratedGame(gameHtml)
       } else {
@@ -127,7 +151,7 @@ function App() {
     }
   }
 
-  // Media Studio Handler - FIXED to use 'image_data' field
+  // Media Studio Handler - PRESERVED WORKING VERSION
   const handleImageSubmit = async (e) => {
     e.preventDefault()
     if (!imagePrompt.trim() || isGeneratingImage) return
@@ -149,7 +173,7 @@ function App() {
         const data = await response.json()
         console.log('✅ Image response received:', data)
         
-        // FIXED: Use 'image_data' field from backend response
+        // PRESERVED: Use 'image_data' field from backend response
         const imageData = data.image_data || data.image_url || data.url
         if (imageData) {
           setGeneratedImage(imageData)
@@ -167,7 +191,7 @@ function App() {
     }
   }
 
-  // Audio Studio Handlers
+  // Audio Studio Handlers - PRESERVED WORKING VERSION
   const generateSpeech = async () => {
     if (!speechText.trim() || isAudioLoading) return
 
@@ -234,6 +258,46 @@ function App() {
     }
   }
 
+  // NEW: Video Studio Handler
+  const generateVideo = async () => {
+    if (!videoPrompt.trim() || isGeneratingVideo) return
+
+    setIsGeneratingVideo(true)
+    setGeneratedVideo('')
+
+    try {
+      console.log('🌐 Sending video request to:', `${VIDEO_API}/generate-video`)
+      const response = await fetch(`${VIDEO_API}/generate-video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: videoPrompt,
+          duration: videoDuration,
+          model_type: videoModelType
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        if (data.video_data) {
+          setGeneratedVideo(data.video_data)
+        } else {
+          setGeneratedVideo(`🎬 Video generated successfully!\n\nModel: ${data.model_used || 'Auto-selected'}\nDuration: ${data.duration || videoDuration} seconds\n\n${data.message || data.status}`)
+        }
+      } else {
+        throw new Error(data.error || 'Failed to generate video')
+      }
+    } catch (error) {
+      console.error('❌ Video generation error:', error)
+      setGeneratedVideo('❌ Sorry, I encountered an error generating video. Please try again.')
+    } finally {
+      setIsGeneratingVideo(false)
+    }
+  }
+
   const renderHome = () => (
     <div className="space-y-8">
       <div className="text-center">
@@ -241,7 +305,7 @@ function App() {
         <p className="text-xl text-purple-200 mb-8">Your AI-powered creative platform</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
           <div className="text-3xl mb-4">🤖</div>
           <h3 className="text-xl font-semibold text-white mb-2">AI Assistant</h3>
@@ -279,6 +343,16 @@ function App() {
           <div className="mt-4 text-sm text-purple-300">
             <div>🎤 Speech Generated: 234</div>
             <div>🎶 Music Created: 156</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <div className="text-3xl mb-4">🎬</div>
+          <h3 className="text-xl font-semibold text-white mb-2">Video Studio</h3>
+          <p className="text-purple-200">Create amazing videos with AI generation</p>
+          <div className="mt-4 text-sm text-purple-300">
+            <div>🎥 Videos Created: 78</div>
+            <div>🌟 Quality Score: 9.5/10</div>
           </div>
         </div>
       </div>
@@ -514,6 +588,105 @@ function App() {
     </div>
   )
 
+  // NEW: Video Studio Render Function
+  const renderVideoStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">🎬 Video Studio</h2>
+      
+      {/* Video Generation */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+        <h3 className="text-xl font-semibold text-white mb-4">🎥 Video Generation</h3>
+        
+        {/* Model Selection */}
+        <div className="mb-4">
+          <label className="block text-white text-sm font-medium mb-2">
+            Video Model:
+          </label>
+          <select
+            value={videoModelType}
+            onChange={(e) => setVideoModelType(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="auto" className="bg-gray-800">Auto-Select Best Model</option>
+            <option value="photorealistic" className="bg-gray-800">Photorealistic (Mochi-1)</option>
+            <option value="creative" className="bg-gray-800">Creative (CogVideoX-5B)</option>
+            <option value="animation" className="bg-gray-800">Animation (AnimateDiff)</option>
+          </select>
+        </div>
+
+        {/* Duration Selection */}
+        <div className="mb-4">
+          <label className="block text-white text-sm font-medium mb-2">
+            Duration: {videoDuration} seconds
+          </label>
+          <input
+            type="range"
+            min="2"
+            max="6"
+            value={videoDuration}
+            onChange={(e) => setVideoDuration(parseInt(e.target.value))}
+            className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
+          />
+          <div className="flex justify-between text-sm text-purple-300 mt-1">
+            <span>2s</span>
+            <span>4s</span>
+            <span>6s</span>
+          </div>
+        </div>
+        
+        <textarea
+          value={videoPrompt}
+          onChange={(e) => setVideoPrompt(e.target.value)}
+          placeholder="Describe the video you want to generate... (e.g., 'A cat playing with a ball of yarn', 'Ocean waves crashing on rocks', 'Cartoon character dancing')"
+          className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+          rows="3"
+        />
+        
+        <button
+          onClick={generateVideo}
+          disabled={isGeneratingVideo || !videoPrompt.trim()}
+          className="mt-3 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isGeneratingVideo ? '🎬 Generating Video...' : '🎥 Generate Video'}
+        </button>
+
+        {/* Model Information */}
+        {Object.keys(videoModels).length > 0 && (
+          <div className="mt-4 p-4 bg-white/5 rounded-lg">
+            <h4 className="text-sm font-semibold text-white mb-2">Available Models:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-purple-300">
+              {Object.entries(videoModels).map(([key, model]) => (
+                <div key={key} className="bg-white/5 p-2 rounded">
+                  <div className="font-medium text-white">{model.name}</div>
+                  <div>Quality: {model.quality}</div>
+                  <div>Max: {model.max_duration}s</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Video Results */}
+      {generatedVideo && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-2">🎬 Video Result:</h3>
+          <div className="p-4 bg-white/5 rounded-lg">
+            {generatedVideo.startsWith('data:video') ? (
+              <video 
+                src={generatedVideo} 
+                controls 
+                className="w-full max-w-md mx-auto rounded-lg border border-white/20"
+              />
+            ) : (
+              <p className="text-white whitespace-pre-wrap">{generatedVideo}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
       <div className="container mx-auto px-4 py-8">
@@ -532,11 +705,12 @@ function App() {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-1 border border-white/20">
             <div className="flex space-x-1">
               {[
-                { id: 'home', label: '🏠Home', count: '4' },
+                { id: 'home', label: '🏠Home', count: '5' },
                 { id: 'chat', label: '💬AI Chat', count: '2' },
                 { id: 'games', label: '🎮Game Creator', count: '3' },
                 { id: 'media', label: '🎨Media Studio', count: '4' },
-                { id: 'audio', label: '🎵Audio Studio', count: '5' }
+                { id: 'audio', label: '🎵Audio Studio', count: '5' },
+                { id: 'video', label: '🎬Video Studio', count: '6' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -564,10 +738,14 @@ function App() {
           {activeTab === 'games' && renderGameCreator()}
           {activeTab === 'media' && renderMediaStudio()}
           {activeTab === 'audio' && renderAudioStudio()}
+          {activeTab === 'video' && renderVideoStudio()}
         </div>
       </div>
     </div>
   )
+}
+
+export default App
 }
 
 export default App
