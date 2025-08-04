@@ -28,7 +28,7 @@ function App() {
   const [voicePresets, setVoicePresets] = useState([])
   const [selectedVoice, setSelectedVoice] = useState('v2/en_speaker_6')
 
-  // Video Studio states - NEW
+  // Video Studio states
   const [videoPrompt, setVideoPrompt] = useState('')
   const [videoDuration, setVideoDuration] = useState(6)
   const [videoModelType, setVideoModelType] = useState('auto')
@@ -55,7 +55,6 @@ function App() {
     }
   }
 
-  // NEW: Load video models
   const loadVideoModels = async () => {
     try {
       const response = await fetch(`${VIDEO_API}/video-models`)
@@ -258,7 +257,7 @@ function App() {
     }
   }
 
-  // NEW: Video Studio Handler
+  // Video Studio Handler - NEW
   const generateVideo = async () => {
     if (!videoPrompt.trim() || isGeneratingVideo) return
 
@@ -588,7 +587,6 @@ function App() {
     </div>
   )
 
-  // NEW: Video Studio Render Function
   const renderVideoStudio = () => (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold text-white text-center">🎬 Video Studio</h2>
@@ -743,9 +741,6 @@ function App() {
       </div>
     </div>
   )
-}
-
-export default App
 }
 
 export default App
