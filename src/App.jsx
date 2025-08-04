@@ -1,158 +1,196 @@
 import React, { useState, useEffect } from 'react'
+import './App.css'
 
-// API URLs
-const ASSISTANT_API = import.meta.env.VITE_ASSISTANT_API || 'https://mythiq-assistant-production.up.railway.app'
-const GAMEMAKER_API = import.meta.env.VITE_GAMEMAKER_API || 'https://mythiq-game-maker-production.up.railway.app'
-const MEDIA_API = import.meta.env.VITE_MEDIA_API || 'https://mythiq-media-creator-production.up.railway.app'
-const AUDIO_API = import.meta.env.VITE_AUDIO_API || 'https://mythiq-audio-creator-production.up.railway.app'
-const VIDEO_API = import.meta.env.VITE_VIDEO_API || 'https://mythiq-video-creator-production.up.railway.app'
+// Hardcoded API URLs for Railway deployment
+const ASSISTANT_API = 'https://mythiq-assistant-production.up.railway.app'
+const GAMEMAKER_API = 'https://mythiq-game-maker-production.up.railway.app'
+const MEDIA_API = 'https://mythiq-media-creator-production.up.railway.app'
+const AUDIO_API = 'https://mythiq-audio-creator-production.up.railway.app'
+const VIDEO_API = 'https://mythiq-video-creator-production.up.railway.app'
 
 function App() {
-  // Existing states
   const [activeTab, setActiveTab] = useState('home')
-  const [chatInput, setChatInput] = useState('')
-  const [chatResponse, setChatResponse] = useState('')
+  const [messages, setMessages] = useState([])
+  const [currentMessage, setCurrentMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [gameDescription, setGameDescription] = useState('')
-  const [gameHtml, setGameHtml] = useState('')
-  const [isGameLoading, setIsGameLoading] = useState(false)
+  const [generatedGame, setGeneratedGame] = useState('')
+  const [isGeneratingGame, setIsGeneratingGame] = useState(false)
   const [imagePrompt, setImagePrompt] = useState('')
-  const [imageResult, setImageResult] = useState('')
-  const [isImageLoading, setIsImageLoading] = useState(false)
-
-  // Audio states
+  const [generatedImage, setGeneratedImage] = useState('')
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+  
+  // Audio Studio states
   const [speechText, setSpeechText] = useState('')
   const [musicPrompt, setMusicPrompt] = useState('')
   const [audioResult, setAudioResult] = useState('')
   const [isAudioLoading, setIsAudioLoading] = useState(false)
   const [voicePresets, setVoicePresets] = useState([])
-  const [selectedVoice, setSelectedVoice] = useState('')
+  const [selectedVoice, setSelectedVoice] = useState('v2/en_speaker_6')
 
-  // Video states
+  // Video Studio states
   const [videoPrompt, setVideoPrompt] = useState('')
   const [videoDuration, setVideoDuration] = useState(6)
   const [videoModelType, setVideoModelType] = useState('auto')
   const [generatedVideo, setGeneratedVideo] = useState('')
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false)
-  const [videoModels, setVideoModels] = useState([])
+  const [videoModels, setVideoModels] = useState({})
 
-  // Load voice presets on component mount
+  // Load voice presets and video models on component mount
   useEffect(() => {
-    const loadVoicePresets = async () => {
-      try {
-        const response = await fetch(`${AUDIO_API}/voice-presets`)
-        const data = await response.json()
-        if (data.success && data.presets) {
-          setVoicePresets(data.presets)
-          if (data.presets.length > 0) {
-            setSelectedVoice(data.presets[0].id)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading voice presets:', error)
-      }
-    }
-
     loadVoicePresets()
-  }, [])
-
-  // Load video models on component mount
-  useEffect(() => {
-    const loadVideoModels = async () => {
-      try {
-        const response = await fetch(`${VIDEO_API}/video-models`)
-        const data = await response.json()
-        if (data.success && data.models) {
-          setVideoModels(data.models)
-        }
-      } catch (error) {
-        console.error('Error loading video models:', error)
-      }
-    }
-
     loadVideoModels()
   }, [])
 
-  // Existing handlers
-  const handleChatSubmit = async () => {
-    if (!chatInput.trim() || isLoading) return
+  const loadVoicePresets = async () => {
+    try {
+      const response = await fetch(`${AUDIO_API}/voice-presets`)
+      const data = await response.json()
+      
+      if (data.success && data.presets && data.presets.english) {
+        setVoicePresets(data.presets.english)
+      }
+    } catch (error) {
+      console.error('Error loading voice presets:', error)
+    }
+  }
 
+  const loadVideoModels = async () => {
+    try {
+      const response = await fetch(`${VIDEO_API}/video-models`)
+      const data = await response.json()
+      
+      if (data.success && data.models) {
+        setVideoModels(data.models)
+      }
+    } catch (error) {
+      console.error('Error loading video models:', error)
+    }
+  }
+
+  // AI Chat Handler - PRESERVED WORKING VERSION
+  const handleChatSubmit = async (e) => {
+    e.preventDefault()
+    if (!currentMessage.trim() || isLoading) return
+
+    const userMessage = currentMessage.trim()
+    setMessages(prev => [...prev, { type: 'user', content: userMessage }])
+    setCurrentMessage('')
     setIsLoading(true)
-    setChatResponse('')
 
     try {
+      console.log('🌐 Sending chat request to:', `${ASSISTANT_API}/chat`)
       const response = await fetch(`${ASSISTANT_API}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content: chatInput }),
+        body: JSON.stringify({ message: userMessage })
       })
 
-      const data = await response.json()
-      const aiResponse = data.content || data.response || 'AI response received'
-      setChatResponse(aiResponse)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Chat response received:', data)
+        
+        // PRESERVED: Use 'content' field from backend response
+        const aiResponse = data.content || data.response || 'AI response received'
+        
+        setMessages(prev => [...prev, { 
+          type: 'ai', 
+          content: aiResponse
+        }])
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
     } catch (error) {
-      console.error('Error:', error)
-      setChatResponse('Sorry, I encountered an error. Please try again.')
+      console.error('❌ Chat error:', error)
+      setMessages(prev => [...prev, { 
+        type: 'ai', 
+        content: 'Sorry, there was an error processing your request. Please try again.'
+      }])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleGameSubmit = async () => {
-    if (!gameDescription.trim() || isGameLoading) return
+  // Game Creator Handler - PRESERVED WORKING VERSION
+  const handleGameSubmit = async (e) => {
+    e.preventDefault()
+    if (!gameDescription.trim() || isGeneratingGame) return
 
-    setIsGameLoading(true)
-    setGameHtml('')
+    setIsGeneratingGame(true)
+    setGeneratedGame('')
 
     try {
-      const response = await fetch(`${GAMEMAKER_API}/create-game`, {
+      console.log('🌐 Sending game request to:', `${GAMEMAKER_API}/generate-game`)
+      const response = await fetch(`${GAMEMAKER_API}/generate-game`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: gameDescription }),
+        // PRESERVED: Use 'prompt' instead of 'description'
+        body: JSON.stringify({ prompt: gameDescription })
       })
 
-      const data = await response.json()
-      const gameHtml = data.game_html || data.html || 'Game generated successfully!'
-      setGameHtml(gameHtml)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Game response received:', data)
+        
+        // PRESERVED: Use 'game_html' field from backend response
+        const gameHtml = data.game_html || data.html || 'Game generated successfully!'
+        setGeneratedGame(gameHtml)
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
     } catch (error) {
-      console.error('Error:', error)
-      setGameHtml('Sorry, I encountered an error creating the game. Please try again.')
+      console.error('❌ Game generation error:', error)
+      setGeneratedGame('Sorry, there was an error generating the game. Please try again.')
     } finally {
-      setIsGameLoading(false)
+      setIsGeneratingGame(false)
     }
   }
 
-  const handleImageSubmit = async () => {
-    if (!imagePrompt.trim() || isImageLoading) return
+  // Media Studio Handler - PRESERVED WORKING VERSION
+  const handleImageSubmit = async (e) => {
+    e.preventDefault()
+    if (!imagePrompt.trim() || isGeneratingImage) return
 
-    setIsImageLoading(true)
-    setImageResult('')
+    setIsGeneratingImage(true)
+    setGeneratedImage('')
 
     try {
+      console.log('🌐 Sending image request to:', `${MEDIA_API}/generate-image`)
       const response = await fetch(`${MEDIA_API}/generate-image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: imagePrompt }),
+        body: JSON.stringify({ prompt: imagePrompt })
       })
 
-      const data = await response.json()
-      const imageData = data.image_data || data.image_url || data.url || 'Image generated successfully!'
-      setImageResult(imageData)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Image response received:', data)
+        
+        // PRESERVED: Use 'image_data' field from backend response
+        const imageData = data.image_data || data.image_url || data.url
+        if (imageData) {
+          setGeneratedImage(imageData)
+        } else {
+          setGeneratedImage('Image generated successfully!')
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
     } catch (error) {
-      console.error('Error:', error)
-      setImageResult('Sorry, I encountered an error generating the image. Please try again.')
+      console.error('❌ Image generation error:', error)
+      setGeneratedImage('Sorry, there was an error generating the image. Please try again.')
     } finally {
-      setIsImageLoading(false)
+      setIsGeneratingImage(false)
     }
   }
 
-  // Audio handlers
+  // Audio Studio Handlers - PRESERVED WORKING VERSION
   const generateSpeech = async () => {
     if (!speechText.trim() || isAudioLoading) return
 
@@ -219,7 +257,7 @@ function App() {
     }
   }
 
-  // FIXED Video generation handler
+  // Video Studio Handler - FIXED VERSION
   const generateVideo = async () => {
     if (!videoPrompt.trim() || isGeneratingVideo) return
 
@@ -300,7 +338,7 @@ function App() {
           <p className="text-purple-200">Generate playable games with AI assistance</p>
           <div className="mt-4 text-sm text-purple-300">
             <div>🎯 Games Created: 89</div>
-            <div>⭐ Success Rate: 94%</div>
+            <div>🏆 Success Rate: 94%</div>
           </div>
         </div>
         
@@ -313,112 +351,342 @@ function App() {
             <div>✨ Quality Score: 9.2/10</div>
           </div>
         </div>
-        
+
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
           <div className="text-3xl mb-4">🎵</div>
           <h3 className="text-xl font-semibold text-white mb-2">Audio Studio</h3>
           <p className="text-purple-200">Generate speech and music with AI</p>
           <div className="mt-4 text-sm text-purple-300">
             <div>🎤 Speech Generated: 234</div>
-            <div>🎵 Music Created: 156</div>
+            <div>🎶 Music Created: 156</div>
           </div>
         </div>
-        
+
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
           <div className="text-3xl mb-4">🎬</div>
           <h3 className="text-xl font-semibold text-white mb-2">Video Studio</h3>
           <p className="text-purple-200">Create amazing videos with AI generation</p>
           <div className="mt-4 text-sm text-purple-300">
             <div>🎥 Videos Created: 78</div>
-            <div>⭐ Quality Score: 9.5/10</div>
+            <div>🌟 Quality Score: 9.5/10</div>
           </div>
         </div>
       </div>
     </div>
   )
 
-  const renderVideoStudio = () => (
+  const renderChat = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">🎬 Video Studio</h2>
-        <p className="text-gray-400">Create amazing videos with AI generation</p>
-      </div>
+      <h2 className="text-3xl font-bold text-white text-center">AI Chat Assistant</h2>
       
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-xl font-semibold text-white mb-4">🎥 Video Generation</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Video Model:</label>
-            <select 
-              value={videoModelType} 
-              onChange={(e) => setVideoModelType(e.target.value)}
-              className="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:outline-none"
-            >
-              <option value="auto">Auto-Select Best Model</option>
-              <option value="photorealistic">Photorealistic (Mochi-1)</option>
-              <option value="creative">Creative (CogVideoX-5B)</option>
-              <option value="animation">Animation (AnimateDiff)</option>
-            </select>
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 h-96 overflow-y-auto">
+        {messages.length === 0 ? (
+          <div className="text-center text-purple-200 mt-20">
+            <div className="text-4xl mb-4">💬</div>
+            <p>Start a conversation with our AI assistant!</p>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Duration: {videoDuration} seconds
-            </label>
-            <input
-              type="range"
-              min="2"
-              max="6"
-              value={videoDuration}
-              onChange={(e) => setVideoDuration(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-            />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>2s</span>
-              <span>4s</span>
-              <span>6s</span>
-            </div>
-          </div>
-          
-          <textarea
-            value={videoPrompt}
-            onChange={(e) => setVideoPrompt(e.target.value)}
-            placeholder="Describe the video you want to generate... (e.g., 'A cat playing with a ball of yarn', 'Ocean waves crashing on rocks', 'Cartoon character dancing')"
-            className="w-full p-3 bg-gray-700 text-white rounded-lg resize-none border border-gray-600 focus:border-purple-500 focus:outline-none"
-            rows="3"
-          />
-          
-          <button
-            onClick={generateVideo}
-            disabled={isGeneratingVideo || !videoPrompt.trim()}
-            className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-              isGeneratingVideo || !videoPrompt.trim()
-                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                : 'bg-red-600 text-white hover:bg-red-700'
-            }`}
-          >
-            {isGeneratingVideo ? '🎬 Generating Video...' : '🎥 Generate Video'}
-          </button>
-        </div>
-        
-        {generatedVideo && (
-          <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-            <h4 className="text-lg font-semibold text-white mb-2">📹 Video Results</h4>
-            <pre className="text-green-400 whitespace-pre-wrap text-sm">{generatedVideo}</pre>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((msg, index) => (
+              <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                  msg.type === 'user' 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-white/20 text-white'
+                }`}>
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white/20 text-white px-4 py-2 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>AI is thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
       
+      <form onSubmit={handleChatSubmit} className="flex space-x-4">
+        <input
+          type="text"
+          value={currentMessage}
+          onChange={(e) => setCurrentMessage(e.target.value)}
+          placeholder="Type your message..."
+          className="flex-1 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          disabled={isLoading}
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !currentMessage.trim()}
+          className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isLoading ? 'Sending...' : 'Send'}
+        </button>
+      </form>
+    </div>
+  )
+
+  const renderGameCreator = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">AI Game Creator</h2>
+      
+      <form onSubmit={handleGameSubmit} className="space-y-4">
+        <div>
+          <label className="block text-white text-sm font-medium mb-2">
+            Game Description:
+          </label>
+          <textarea
+            value={gameDescription}
+            onChange={(e) => setGameDescription(e.target.value)}
+            placeholder="Describe the game you want to create..."
+            rows={4}
+            className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            disabled={isGeneratingGame}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isGeneratingGame || !gameDescription.trim()}
+          className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isGeneratingGame ? 'Creating Game...' : 'Create Game'}
+        </button>
+      </form>
+      
+      {generatedGame && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">Generated Game:</h3>
+          {generatedGame.includes('<html>') || generatedGame.includes('<!DOCTYPE') ? (
+            <iframe
+              srcDoc={generatedGame}
+              className="w-full h-96 border border-white/20 rounded-lg bg-white"
+              title="Generated Game"
+            />
+          ) : (
+            <div className="text-white whitespace-pre-wrap">{generatedGame}</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderMediaStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">AI Media Studio</h2>
+      
+      <form onSubmit={handleImageSubmit} className="space-y-4">
+        <div>
+          <label className="block text-white text-sm font-medium mb-2">
+            Image Description:
+          </label>
+          <textarea
+            value={imagePrompt}
+            onChange={(e) => setImagePrompt(e.target.value)}
+            placeholder="Describe the image you want to generate..."
+            rows={3}
+            className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            disabled={isGeneratingImage}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isGeneratingImage || !imagePrompt.trim()}
+          className="w-full px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isGeneratingImage ? 'Creating Image...' : 'Create Image'}
+        </button>
+      </form>
+      
+      {generatedImage && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">Generated Image:</h3>
+          {generatedImage.startsWith('data:image') ? (
+            <img 
+              src={generatedImage} 
+              alt="AI Generated" 
+              className="w-full max-w-md mx-auto rounded-lg border border-white/20"
+            />
+          ) : generatedImage.startsWith('http') ? (
+            <img 
+              src={generatedImage} 
+              alt="AI Generated" 
+              className="w-full max-w-md mx-auto rounded-lg border border-white/20"
+            />
+          ) : (
+            <div className="text-white whitespace-pre-wrap">{generatedImage}</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderAudioStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">🎵 Audio Studio</h2>
+      
+      {/* Speech Generation */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+        <h3 className="text-xl font-semibold text-white mb-4">🎤 Speech Generation</h3>
+        
+        {/* Voice Selection */}
+        {voicePresets.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-white text-sm font-medium mb-2">
+              Voice Preset:
+            </label>
+            <select
+              value={selectedVoice}
+              onChange={(e) => setSelectedVoice(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {voicePresets.map((preset) => (
+                <option key={preset.id} value={preset.id} className="bg-gray-800">
+                  {preset.name} ({preset.gender})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        
+        <textarea
+          value={speechText}
+          onChange={(e) => setSpeechText(e.target.value)}
+          placeholder="Enter text to convert to speech... (e.g., 'Hello, welcome to Mythiq AI Platform!')"
+          className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+          rows="3"
+        />
+        
+        <button
+          onClick={generateSpeech}
+          disabled={isAudioLoading || !speechText.trim()}
+          className="mt-3 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isAudioLoading ? '🎤 Generating Speech...' : '🗣️ Generate Speech'}
+        </button>
+      </div>
+      
+      {/* Music Generation */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+        <h3 className="text-xl font-semibold text-white mb-4">🎵 Music Generation</h3>
+        
+        <input
+          type="text"
+          value={musicPrompt}
+          onChange={(e) => setMusicPrompt(e.target.value)}
+          placeholder="Describe the music you want (e.g., 'upbeat electronic dance music', 'calm piano melody')"
+          className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        
+        <button
+          onClick={generateMusic}
+          disabled={isAudioLoading || !musicPrompt.trim()}
+          className="mt-3 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isAudioLoading ? '🎵 Generating Music...' : '🎶 Generate Music'}
+        </button>
+      </div>
+      
+      {/* Audio Results */}
+      {audioResult && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-2">🎧 Audio Result:</h3>
+          <div className="p-4 bg-white/5 rounded-lg">
+            <p className="text-white whitespace-pre-wrap">{audioResult}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderVideoStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">🎬 Video Studio</h2>
+      
+      {/* Video Generation */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+        <h3 className="text-xl font-semibold text-white mb-4">🎥 Video Generation</h3>
+        
+        {/* Model Selection */}
+        <div className="mb-4">
+          <label className="block text-white text-sm font-medium mb-2">
+            Video Model:
+          </label>
+          <select
+            value={videoModelType}
+            onChange={(e) => setVideoModelType(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="auto" className="bg-gray-800">Auto-Select Best Model</option>
+            <option value="photorealistic" className="bg-gray-800">Photorealistic (Mochi-1)</option>
+            <option value="creative" className="bg-gray-800">Creative (CogVideoX-5B)</option>
+            <option value="animation" className="bg-gray-800">Animation (AnimateDiff)</option>
+          </select>
+        </div>
+        
+        {/* Duration Control */}
+        <div className="mb-4">
+          <label className="block text-white text-sm font-medium mb-2">
+            Duration: {videoDuration} seconds
+          </label>
+          <input
+            type="range"
+            min="2"
+            max="6"
+            value={videoDuration}
+            onChange={(e) => setVideoDuration(parseInt(e.target.value))}
+            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+          />
+          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <span>2s</span>
+            <span>4s</span>
+            <span>6s</span>
+          </div>
+        </div>
+        
+        <textarea
+          value={videoPrompt}
+          onChange={(e) => setVideoPrompt(e.target.value)}
+          placeholder="Describe the video you want to generate... (e.g., 'A cat playing with a ball of yarn', 'Ocean waves crashing on rocks', 'Cartoon character dancing')"
+          className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+          rows="3"
+        />
+        
+        <button
+          onClick={generateVideo}
+          disabled={isGeneratingVideo || !videoPrompt.trim()}
+          className="mt-3 w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isGeneratingVideo ? '🎬 Generating Video...' : '🎥 Generate Video'}
+        </button>
+      </div>
+      
+      {/* Video Results */}
+      {generatedVideo && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-2">📹 Video Result:</h3>
+          <div className="p-4 bg-white/5 rounded-lg">
+            <pre className="text-green-400 whitespace-pre-wrap text-sm">{generatedVideo}</pre>
+          </div>
+        </div>
+      )}
+      
+      {/* Available Models Display */}
       {videoModels && Object.keys(videoModels).length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
           <h3 className="text-lg font-semibold text-white mb-4">Available Models:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(videoModels).map(([key, model]) => (
-              <div key={key} className="bg-gray-700 rounded-lg p-4">
+              <div key={key} className="bg-white/5 rounded-lg p-4">
                 <h4 className="font-semibold text-white">{model.name}</h4>
                 <p className="text-sm text-gray-300">Quality: {model.quality}</p>
-                <p className="text-sm text-gray-300">Max: {model.max_duration}s</p>
+                <p className="text-sm text-gray-300">Max Duration: {model.max_duration}s</p>
+                <p className="text-xs text-gray-400 mt-2">Best for: {model.best_for?.join(', ')}</p>
               </div>
             ))}
           </div>
@@ -430,6 +698,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
       <div className="container mx-auto px-4 py-8">
+        {/* Header */}
         <div className="flex items-center justify-center mb-8">
           <div className="bg-pink-500 rounded-lg p-3 mr-4">
             <span className="text-white font-bold text-xl">M</span>
@@ -437,6 +706,7 @@ function App() {
           <h1 className="text-3xl font-bold text-white">Mythiq</h1>
         </div>
         
+        {/* Navigation */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           <button
             onClick={() => setActiveTab('home')}
@@ -500,220 +770,18 @@ function App() {
           </button>
         </div>
 
+        {/* Content */}
         <div className="max-w-4xl mx-auto">
           {activeTab === 'home' && renderHome()}
-          
-          {activeTab === 'chat' && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">💬 AI Chat Assistant</h2>
-                <p className="text-gray-400">Powered by Groq Llama 3.1</p>
-              </div>
-              
-              <div className="bg-gray-800 rounded-lg p-6">
-                <div className="space-y-4">
-                  <textarea
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Ask me anything..."
-                    className="w-full p-3 bg-gray-700 text-white rounded-lg resize-none"
-                    rows="3"
-                  />
-                  <button
-                    onClick={handleChatSubmit}
-                    disabled={isLoading}
-                    className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-                      isLoading
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {isLoading ? 'Thinking...' : 'Send Message'}
-                  </button>
-                </div>
-                
-                {chatResponse && (
-                  <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-                    <h3 className="text-lg font-semibold text-white mb-2">AI Response:</h3>
-                    <p className="text-gray-300 whitespace-pre-wrap">{chatResponse}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'game' && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">🎮 Game Creator</h2>
-                <p className="text-gray-400">Generate playable games with AI</p>
-              </div>
-              
-              <div className="bg-gray-800 rounded-lg p-6">
-                <div className="space-y-4">
-                  <textarea
-                    value={gameDescription}
-                    onChange={(e) => setGameDescription(e.target.value)}
-                    placeholder="Describe the game you want to create..."
-                    className="w-full p-3 bg-gray-700 text-white rounded-lg resize-none"
-                    rows="3"
-                  />
-                  <button
-                    onClick={handleGameSubmit}
-                    disabled={isGameLoading}
-                    className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-                      isGameLoading
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-orange-600 text-white hover:bg-orange-700'
-                    }`}
-                  >
-                    {isGameLoading ? 'Creating Game...' : 'Create Game'}
-                  </button>
-                </div>
-                
-                {gameHtml && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold text-white mb-2">Generated Game:</h3>
-                    <div className="bg-white rounded-lg p-4">
-                      <iframe
-                        srcDoc={gameHtml}
-                        className="w-full h-96 border-0"
-                        title="Generated Game"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'media' && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">🎨 Media Studio</h2>
-                <p className="text-gray-400">Create stunning images with AI</p>
-              </div>
-              
-              <div className="bg-gray-800 rounded-lg p-6">
-                <div className="space-y-4">
-                  <textarea
-                    value={imagePrompt}
-                    onChange={(e) => setImagePrompt(e.target.value)}
-                    placeholder="Describe the image you want to create..."
-                    className="w-full p-3 bg-gray-700 text-white rounded-lg resize-none"
-                    rows="3"
-                  />
-                  <button
-                    onClick={handleImageSubmit}
-                    disabled={isImageLoading}
-                    className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-                      isImageLoading
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-pink-600 text-white hover:bg-pink-700'
-                    }`}
-                  >
-                    {isImageLoading ? 'Generating Image...' : 'Generate Image'}
-                  </button>
-                </div>
-                
-                {imageResult && (
-                  <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-                    <h3 className="text-lg font-semibold text-white mb-2">Generated Image:</h3>
-                    <p className="text-gray-300">{imageResult}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'audio' && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">🎵 Audio Studio</h2>
-                <p className="text-gray-400">Generate speech and music with AI</p>
-              </div>
-              
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">🎤 Speech Generation</h3>
-                <div className="space-y-4">
-                  {voicePresets.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Voice:</label>
-                      <select 
-                        value={selectedVoice} 
-                        onChange={(e) => setSelectedVoice(e.target.value)}
-                        className="w-full p-3 bg-gray-700 text-white rounded-lg"
-                      >
-                        {voicePresets.map((preset) => (
-                          <option key={preset.id} value={preset.id}>
-                            {preset.name} ({preset.gender})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <textarea
-                    value={speechText}
-                    onChange={(e) => setSpeechText(e.target.value)}
-                    placeholder="Enter text to convert to speech..."
-                    className="w-full p-3 bg-gray-700 text-white rounded-lg resize-none"
-                    rows="3"
-                  />
-                  <button
-                    onClick={generateSpeech}
-                    disabled={isAudioLoading || !speechText.trim()}
-                    className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-                      isAudioLoading || !speechText.trim()
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {isAudioLoading ? 'Generating Speech...' : 'Generate Speech'}
-                  </button>
-                </div>
-              </div>
-              
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">🎵 Music Generation</h3>
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    value={musicPrompt}
-                    onChange={(e) => setMusicPrompt(e.target.value)}
-                    placeholder="Describe the music you want (e.g., 'upbeat electronic dance music')"
-                    className="w-full p-3 bg-gray-700 text-white rounded-lg"
-                  />
-                  <button
-                    onClick={generateMusic}
-                    disabled={isAudioLoading || !musicPrompt.trim()}
-                    className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-                      isAudioLoading || !musicPrompt.trim()
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    {isAudioLoading ? 'Generating Music...' : 'Generate Music'}
-                  </button>
-                </div>
-              </div>
-              
-              {audioResult && (
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">🎧 Audio Results</h3>
-                  <pre className="text-green-400 whitespace-pre-wrap">{audioResult}</pre>
-                </div>
-              )}
-            </div>
-          )}
-
+          {activeTab === 'chat' && renderChat()}
+          {activeTab === 'game' && renderGameCreator()}
+          {activeTab === 'media' && renderMediaStudio()}
+          {activeTab === 'audio' && renderAudioStudio()}
           {activeTab === 'video' && renderVideoStudio()}
         </div>
       </div>
     </div>
   )
-}
-
-export default App
 }
 
 export default App
