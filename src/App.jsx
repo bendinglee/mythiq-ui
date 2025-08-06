@@ -1,684 +1,1066 @@
-import React, { useState } from 'react';
-import './App.css';
+import React, { useState, useEffect } from 'react'
+import './App.css'
+
+// ✅ PRESERVED: Original hardcoded API URLs for Railway deployment
+const ASSISTANT_API = 'https://mythiq-assistant-production.up.railway.app'
+const GAMEMAKER_API = 'https://mythiq-game-maker-production.up.railway.app'
+const MEDIA_API = 'https://mythiq-media-creator-production.up.railway.app'
+const AUDIO_API = 'https://mythiq-audio-creator-production.up.railway.app'
+const VIDEO_API = 'https://mythiq-video-creator-production.up.railway.app'
 
 function App() {
-  // ✅ ALL ORIGINAL STATE VARIABLES PRESERVED
-  const [activeTab, setActiveTab] = useState('home');
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [gameDescription, setGameDescription] = useState('');
-  const [gameMode, setGameMode] = useState('enhanced'); // ✅ KEPT ORIGINAL DEFAULT
-  const [generatedGame, setGeneratedGame] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [imagePrompt, setImagePrompt] = useState('');
-  const [generatedImage, setGeneratedImage] = useState(null);
-  const [audioText, setAudioText] = useState('');
-  const [audioType, setAudioType] = useState('speech');
-  const [generatedAudio, setGeneratedAudio] = useState(null);
-  const [videoPrompt, setVideoPrompt] = useState('');
-  const [generatedVideo, setGeneratedVideo] = useState(null);
+  // ✅ PRESERVED: All original state variables EXACTLY as they were
+  const [activeTab, setActiveTab] = useState('home')
+  const [messages, setMessages] = useState([])
+  const [currentMessage, setCurrentMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [gameDescription, setGameDescription] = useState('')
+  const [generatedGame, setGeneratedGame] = useState('')
+  const [isGeneratingGame, setIsGeneratingGame] = useState(false)
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [generatedImage, setGeneratedImage] = useState('')
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+  
+  // ✅ PRESERVED: Audio Studio states EXACTLY as they were
+  const [speechText, setSpeechText] = useState('')
+  const [musicPrompt, setMusicPrompt] = useState('')
+  const [audioResult, setAudioResult] = useState('')
+  const [isAudioLoading, setIsAudioLoading] = useState(false)
+  const [voicePresets, setVoicePresets] = useState([])
+  const [selectedVoice, setSelectedVoice] = useState('v2/en_speaker_6')
 
-  // ✅ ENHANCED GAME GENERATION WITH FREE AI SUPPORT
-  const generateGame = async () => {
-    if (!gameDescription.trim()) {
-      alert('Please enter a game description');
-      return;
+  // ✅ PRESERVED: Video Studio states EXACTLY as they were
+  const [videoPrompt, setVideoPrompt] = useState('')
+  const [videoDuration, setVideoDuration] = useState(6)
+  const [videoModelType, setVideoModelType] = useState('auto')
+  const [generatedVideo, setGeneratedVideo] = useState('')
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false)
+  const [videoModels, setVideoModels] = useState({})
+
+  // ✅ PRESERVED: Enhanced Game Creator states EXACTLY as they were
+  const [gameMetadata, setGameMetadata] = useState(null)
+  const [enhancedMode, setEnhancedMode] = useState(true)
+  const [gameError, setGameError] = useState('')
+
+  // 🆕 NEW: FREE AI state (only addition)
+  const [freeAIMode, setFreeAIMode] = useState(false)
+
+  // ✅ PRESERVED: Load voice presets and video models on component mount EXACTLY as original
+  useEffect(() => {
+    loadVoicePresets()
+    loadVideoModels()
+  }, [])
+
+  // ✅ PRESERVED: loadVoicePresets function EXACTLY as original
+  const loadVoicePresets = async () => {
+    try {
+      const response = await fetch(`${AUDIO_API}/voice-presets`)
+      const data = await response.json()
+      
+      if (data.success && data.presets && data.presets.english) {
+        setVoicePresets(data.presets.english)
+      }
+    } catch (error) {
+      console.error('Error loading voice presets:', error)
     }
+  }
 
-    setIsGenerating(true);
-    setGeneratedGame(null);
+  // ✅ PRESERVED: loadVideoModels function EXACTLY as original
+  const loadVideoModels = async () => {
+    try {
+      const response = await fetch(`${VIDEO_API}/video-models`)
+      const data = await response.json()
+      
+      if (data.success && data.models) {
+        setVideoModels(data.models)
+      }
+    } catch (error) {
+      console.error('Error loading video models:', error)
+    }
+  }
+
+  // ✅ PRESERVED: AI Chat Handler EXACTLY as original
+  const handleChatSubmit = async (e) => {
+    e.preventDefault()
+    if (!currentMessage.trim() || isLoading) return
+
+    const userMessage = currentMessage.trim()
+    setMessages(prev => [...prev, { type: 'user', content: userMessage }])
+    setCurrentMessage('')
+    setIsLoading(true)
 
     try {
-      let gameData;
-      let endpoint;
-      let requestBody;
+      console.log('🌐 Sending chat request to:', `${ASSISTANT_API}/chat`)
+      const response = await fetch(`${ASSISTANT_API}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessage })
+      })
 
-      // ✅ SMART ENDPOINT SELECTION
-      if (gameMode === 'free-ai') {
-        // 🆕 NEW: FREE AI endpoint
-        endpoint = 'https://mythiq-game-maker-production.up.railway.app/ai-generate-game';
-        requestBody = { prompt: gameDescription };
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Chat response received:', data)
+        
+        // PRESERVED: Use 'content' field from backend response
+        const aiResponse = data.content || data.response || 'AI response received'
+        
+        setMessages(prev => [...prev, { 
+          type: 'ai', 
+          content: aiResponse
+        }])
       } else {
-        // ✅ PRESERVED: Original enhanced/basic endpoint
-        endpoint = 'https://mythiq-game-maker-production.up.railway.app/generate-game';
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('❌ Chat error:', error)
+      setMessages(prev => [...prev, { 
+        type: 'ai', 
+        content: 'Sorry, there was an error processing your request. Please try again.'
+      }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 🔧 ENHANCED: Game Creator Handler with FREE AI support
+  const handleGameSubmit = async (e) => {
+    e.preventDefault()
+    if (!gameDescription.trim() || isGeneratingGame) return
+
+    setIsGeneratingGame(true)
+    setGeneratedGame('')
+    setGameError('')
+    setGameMetadata(null)
+
+    try {
+      let endpoint, requestBody;
+
+      // 🆕 NEW: FREE AI endpoint selection
+      if (freeAIMode) {
+        console.log('🤖 Using FREE AI generation...')
+        endpoint = `${GAMEMAKER_API}/ai-generate-game`
+        requestBody = { prompt: gameDescription }
+      } else {
+        // ✅ PRESERVED: Original enhanced/basic logic
+        console.log('🌐 Sending enhanced game request to:', `${GAMEMAKER_API}/generate-game`)
+        endpoint = `${GAMEMAKER_API}/generate-game`
         requestBody = { 
-          prompt: gameDescription, 
-          enhanced: gameMode === 'enhanced' 
-        };
+          prompt: gameDescription,
+          enhanced: enhancedMode  // 🚀 ENHANCED GENERATION ENABLED!
+        }
       }
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(requestBody)
-      });
+      })
 
-      if (!response.ok) {
-        throw new Error(`Generation failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // ✅ SMART RESPONSE HANDLING
-      if (gameMode === 'free-ai') {
-        // 🆕 FREE AI response format
-        gameData = {
-          html: data.game_html,
-          title: data.game_title || 'FREE AI Generated Game',
-          template: data.template_used || 'AI Generated',
-          features: data.features || ['AI Generated', 'Unique Design'],
-          quality: data.quality_score || '9/10',
-          metadata: {
-            generation_time: data.generation_time,
-            ai_model: data.ai_model_used || 'Groq Llama 3',
-            mode: 'FREE AI',
-            uniqueness: 'Completely Unique'
-          }
-        };
-      } else {
-        // ✅ PRESERVED: Original enhanced/basic response format
-        gameData = {
-          ...data,
-          metadata: {
-            mode: gameMode === 'enhanced' ? 'Enhanced' : 'Basic',
-            template_based: true
-          }
-        };
-      }
-
-      setGeneratedGame(gameData);
-
-    } catch (error) {
-      console.error('Game generation failed:', error);
-      
-      // ✅ INTELLIGENT FALLBACK SYSTEM
-      if (gameMode === 'free-ai') {
-        try {
-          console.log('FREE AI failed, falling back to Enhanced mode...');
-          const fallbackResponse = await fetch('https://mythiq-game-maker-production.up.railway.app/generate-game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: gameDescription, enhanced: true })
-          });
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Game response received:', data)
+        
+        // 🔧 ENHANCED: Handle both FREE AI and original responses
+        if (freeAIMode) {
+          // 🆕 FREE AI response format
+          const gameHtml = data.game_html || data.html || 'FREE AI game generated successfully!'
+          setGeneratedGame(gameHtml)
           
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            setGeneratedGame({
-              ...fallbackData,
-              title: (fallbackData.title || 'Generated Game') + ' (Fallback)',
-              metadata: { 
-                fallback: true, 
-                original_mode: 'FREE AI',
-                mode: 'Enhanced Fallback'
-              }
-            });
-          } else {
-            throw new Error('Fallback also failed');
+          setGameMetadata({
+            template: data.template_used || 'AI Generated',
+            features: data.features || ['AI Generated', 'Unique Design'],
+            generatedAt: new Date().toISOString(),
+            title: data.game_title || 'FREE AI Generated Game',
+            quality: data.quality_score || 'Revolutionary (9/10)'
+          })
+        } else {
+          // ✅ PRESERVED: Original enhanced response handling
+          const gameHtml = data.game_html || data.html || 'Enhanced game generated successfully!'
+          setGeneratedGame(gameHtml)
+          
+          // Handle enhanced metadata
+          if (data.metadata) {
+            setGameMetadata({
+              template: data.metadata.template_used || 'enhanced',
+              features: data.metadata.features || ['professional-graphics', 'complete-mechanics'],
+              generatedAt: data.metadata.generated_at || new Date().toISOString(),
+              title: data.metadata.title || 'Enhanced Game',
+              quality: data.metadata.quality || 'Professional'
+            })
           }
-        } catch (fallbackError) {
-          alert('Game generation failed. Please try again or use Enhanced mode.');
         }
       } else {
-        alert('Game generation failed. Please try again.');
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('❌ Game generation error:', error)
+      
+      // 🔧 ENHANCED: Intelligent fallback system
+      if (freeAIMode) {
+        console.log('🔄 FREE AI failed, falling back to Enhanced mode...')
+        setGameError('FREE AI generation unavailable. Falling back to Enhanced mode.')
+        try {
+          const fallbackResponse = await fetch(`${GAMEMAKER_API}/generate-game`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt: gameDescription, enhanced: true })
+          })
+          
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json()
+            const gameHtml = fallbackData.game_html || fallbackData.html || 'Game generated successfully!'
+            setGeneratedGame(gameHtml)
+            setGameMetadata({
+              template: 'enhanced-fallback',
+              features: ['fallback-mode', 'professional-graphics'],
+              generatedAt: new Date().toISOString(),
+              title: 'Enhanced Game (Fallback)',
+              quality: 'Professional (Fallback)'
+            })
+          } else {
+            throw new Error('Fallback also failed')
+          }
+        } catch (fallbackError) {
+          setGameError('Both FREE AI and Enhanced generation failed. Please try again.')
+        }
+      } else {
+        // ✅ PRESERVED: Original fallback logic
+        setGameError('Failed to generate enhanced game. Please try again.')
+        
+        // Fallback to basic generation if enhanced fails
+        if (enhancedMode) {
+          console.log('🔄 Attempting fallback to basic generation...')
+          try {
+            const fallbackResponse = await fetch(`${GAMEMAKER_API}/generate-game`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ prompt: gameDescription })
+            })
+            
+            if (fallbackResponse.ok) {
+              const fallbackData = await fallbackResponse.json()
+              const gameHtml = fallbackData.game_html || fallbackData.html || 'Game generated successfully!'
+              setGeneratedGame(gameHtml)
+              setGameError('Enhanced generation unavailable. Generated with basic mode.')
+            }
+          } catch (fallbackError) {
+            console.error('❌ Fallback generation also failed:', fallbackError)
+          }
+        }
       }
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingGame(false)
     }
-  };
+  }
 
-  // ✅ PRESERVED: Original chat function UNCHANGED
-  const sendChatMessage = async () => {
-    if (!chatInput.trim()) return;
+  // ✅ PRESERVED: Media Studio Handler EXACTLY as original
+  const handleImageSubmit = async (e) => {
+    e.preventDefault()
+    if (!imagePrompt.trim() || isGeneratingImage) return
 
-    const userMessage = { role: 'user', content: chatInput };
-    setChatMessages(prev => [...prev, userMessage]);
-    setChatInput('');
+    setIsGeneratingImage(true)
+    setGeneratedImage('')
 
     try {
-      const response = await fetch('https://mythiq-ai-chat-production.up.railway.app/chat', {
+      console.log('🌐 Sending image request to:', `${MEDIA_API}/generate-image`)
+      const response = await fetch(`${MEDIA_API}/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: chatInput,
-          conversation_history: chatMessages
-        })
-      });
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: imagePrompt })
+      })
 
-      const data = await response.json();
-      const assistantMessage = { role: 'assistant', content: data.response };
-      setChatMessages(prev => [...prev, assistantMessage]);
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Image response received:', data)
+        
+        // PRESERVED: Use 'image_data' field from backend response
+        const imageData = data.image_data || data.image_url || data.url
+        if (imageData) {
+          setGeneratedImage(imageData)
+        } else {
+          setGeneratedImage('Image generated successfully!')
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
     } catch (error) {
-      console.error('Chat error:', error);
-      const errorMessage = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
-      setChatMessages(prev => [...prev, errorMessage]);
+      console.error('❌ Image generation error:', error)
+      setGeneratedImage('Sorry, there was an error generating the image. Please try again.')
+    } finally {
+      setIsGeneratingImage(false)
     }
-  };
+  }
 
-  // ✅ PRESERVED: Original image generation UNCHANGED
-  const generateImage = async () => {
-    if (!imagePrompt.trim()) return;
-    
+  // ✅ PRESERVED: Audio Studio Handlers EXACTLY as original
+  const generateSpeech = async () => {
+    if (!speechText.trim() || isAudioLoading) return
+
+    setIsAudioLoading(true)
+    setAudioResult('')
+
     try {
-      const response = await fetch('https://mythiq-media-studio-production.up.railway.app/generate-image', {
+      const response = await fetch(`${AUDIO_API}/generate-speech`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          prompt: imagePrompt,
-          style: 'photorealistic'
-        })
-      });
+          text: speechText,
+          voice_preset: selectedVoice
+        }),
+      })
 
-      const data = await response.json();
-      setGeneratedImage(data.image_url);
+      const data = await response.json()
+      
+      if (data.success) {
+        setAudioResult(`✅ Speech generated successfully!\n\n${data.message || data.status}`)
+      } else {
+        throw new Error(data.error || 'Failed to generate speech')
+      }
     } catch (error) {
-      console.error('Image generation error:', error);
+      console.error('Error:', error)
+      setAudioResult('❌ Sorry, I encountered an error generating speech. Please try again.')
+    } finally {
+      setIsAudioLoading(false)
     }
-  };
+  }
 
-  // ✅ PRESERVED: Original audio generation UNCHANGED
-  const generateAudio = async () => {
-    if (!audioText.trim()) return;
-    
+  const generateMusic = async () => {
+    if (!musicPrompt.trim() || isAudioLoading) return
+
+    setIsAudioLoading(true)
+    setAudioResult('')
+
     try {
-      const endpoint = audioType === 'speech' ? '/generate-speech' : '/generate-music';
-      const response = await fetch(`https://mythiq-audio-studio-production.up.railway.app${endpoint}`, {
+      const response = await fetch(`${AUDIO_API}/generate-music`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          text: audioText,
-          voice: 'default'
-        })
-      });
+          prompt: musicPrompt,
+          duration: 10
+        }),
+      })
 
-      const data = await response.json();
-      setGeneratedAudio(data.audio_url);
+      const data = await response.json()
+      
+      if (data.success) {
+        setAudioResult(`🎵 Music generated successfully!\n\n${data.message || data.status}`)
+      } else {
+        throw new Error(data.error || 'Failed to generate music')
+      }
     } catch (error) {
-      console.error('Audio generation error:', error);
+      console.error('Error:', error)
+      setAudioResult('❌ Sorry, I encountered an error generating music. Please try again.')
+    } finally {
+      setIsAudioLoading(false)
     }
-  };
+  }
 
-  // ✅ PRESERVED: Original video generation UNCHANGED
+  // ✅ PRESERVED: Video Studio Handler EXACTLY as original
   const generateVideo = async () => {
-    if (!videoPrompt.trim()) return;
-    
+    if (!videoPrompt.trim() || isGeneratingVideo) return
+
+    setIsGeneratingVideo(true)
+    setGeneratedVideo('')
+
     try {
-      const response = await fetch('https://mythiq-video-studio-production.up.railway.app/generate-video', {
+      console.log('🌐 Sending video request to:', `${VIDEO_API}/generate-video`)
+      const response = await fetch(`${VIDEO_API}/generate-video`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           prompt: videoPrompt,
-          duration: 6
-        })
-      });
+          duration: videoDuration,
+          model: videoModelType
+        }),
+      })
 
-      const data = await response.json();
-      setGeneratedVideo(data);
+      const data = await response.json()
+      console.log('📹 Video response:', data)
+      
+      if (data.success) {
+        // Format the success response with all the details
+        let resultText = `🎬 Video generated successfully!\n\n`
+        
+        if (data.generation_info) {
+          resultText += `📊 Generation Details:\n`
+          resultText += `• Model: ${data.generation_info.model_name || 'Auto-selected'}\n`
+          resultText += `• Quality: ${data.generation_info.quality || 'High'}\n`
+          resultText += `• Duration: ${data.generation_info.duration || videoDuration} seconds\n`
+          resultText += `• Generation Time: ${data.generation_info.generation_time || 'N/A'}\n\n`
+        }
+        
+        if (data.video_data) {
+          resultText += `🎥 Video Details:\n`
+          resultText += `• Resolution: ${data.video_data.resolution || 'HD'}\n`
+          resultText += `• Format: ${data.video_data.format || 'MP4'}\n`
+          resultText += `• File Size: ${data.video_data.file_size || 'N/A'}\n\n`
+        }
+        
+        resultText += `✨ ${data.message || 'Your video has been generated successfully!'}`
+        
+        setGeneratedVideo(resultText)
+      } else {
+        throw new Error(data.error || 'Failed to generate video')
+      }
     } catch (error) {
-      console.error('Video generation error:', error);
+      console.error('❌ Video generation error:', error)
+      setGeneratedVideo('❌ Sorry, I encountered an error generating video. Please try again.')
+    } finally {
+      setIsGeneratingVideo(false)
     }
-  };
+  }
 
-  // 🆕 NEW: Helper components for enhanced UI (optional, graceful degradation)
-  const QualityIndicator = ({ mode }) => {
-    const qualities = {
-      'free-ai': { score: '9/10', label: 'Revolutionary', color: '#00ff88' },
-      'enhanced': { score: '7/10', label: 'Professional', color: '#ffa500' },
-      'basic': { score: '6/10', label: 'Standard', color: '#888888' }
-    };
-    
-    const quality = qualities[mode] || qualities['enhanced'];
-    
-    return (
-      <div style={{ color: quality.color, fontWeight: 'bold', fontSize: '14px' }}>
-        🏆 {quality.label} ({quality.score})
+  // ✅ PRESERVED: renderHome function EXACTLY as original with Tailwind classes
+  const renderHome = () => (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-white mb-4">Welcome to Mythiq</h1>
+        <p className="text-xl text-purple-200 mb-8">Your AI-powered creative platform</p>
       </div>
-    );
-  };
-
-  const ModeDescription = ({ mode }) => {
-    const descriptions = {
-      'free-ai': '🤖 Uses advanced AI to create completely unique games never seen before. Every generation is different!',
-      'enhanced': '✨ Uses professional templates with enhanced graphics and features.',
-      'basic': '🔧 Simple, reliable game generation using basic templates.'
-    };
-    
-    return (
-      <div style={{ fontSize: '12px', color: '#ccc', marginTop: '5px', fontStyle: 'italic' }}>
-        {descriptions[mode] || descriptions['enhanced']}
-      </div>
-    );
-  };
-
-  return (
-    <div className="App">
-      {/* ✅ PRESERVED: Original header and navigation UNCHANGED */}
-      <header className="App-header">
-        <div className="nav-container">
-          <div className="logo">
-            <span className="logo-icon">M</span>
-            <span className="logo-text">Mythiq</span>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <div className="text-3xl mb-4">🤖</div>
+          <h3 className="text-xl font-semibold text-white mb-2">AI Assistant</h3>
+          <p className="text-purple-200">Chat with our advanced AI powered by Groq Llama 3.1</p>
+          <div className="mt-4 text-sm text-purple-300">
+            <div>💬 Conversations: 1,247</div>
+            <div>⚡ Avg Response: 1.2s</div>
           </div>
-          <nav className="nav-tabs">
-            <button 
-              className={`nav-tab ${activeTab === 'home' ? 'active' : ''}`}
-              onClick={() => setActiveTab('home')}
-            >
-              🏠Home<span className="tab-number">1</span>
-            </button>
-            <button 
-              className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
-              onClick={() => setActiveTab('chat')}
-            >
-              💬AI Chat<span className="tab-number">2</span>
-            </button>
-            <button 
-              className={`nav-tab ${activeTab === 'game' ? 'active' : ''}`}
-              onClick={() => setActiveTab('game')}
-            >
-              🎮Game Creator<span className="tab-number">3</span>
-            </button>
-            <button 
-              className={`nav-tab ${activeTab === 'media' ? 'active' : ''}`}
-              onClick={() => setActiveTab('media')}
-            >
-              🎨Media Studio<span className="tab-number">4</span>
-            </button>
-            <button 
-              className={`nav-tab ${activeTab === 'audio' ? 'active' : ''}`}
-              onClick={() => setActiveTab('audio')}
-            >
-              🎵Audio Studio<span className="tab-number">5</span>
-            </button>
-            <button 
-              className={`nav-tab ${activeTab === 'video' ? 'active' : ''}`}
-              onClick={() => setActiveTab('video')}
-            >
-              🎬Video Studio<span className="tab-number">6</span>
-            </button>
-          </nav>
         </div>
-      </header>
-
-      <main className="main-content">
-        {/* ✅ PRESERVED: Original home section UNCHANGED */}
-        {activeTab === 'home' && (
-          <div className="home-content">
-            <h1>Welcome to Mythiq</h1>
-            <p>Your AI-powered creative platform</p>
-            <div className="feature-grid">
-              <div className="feature-card" onClick={() => setActiveTab('chat')}>
-                <div className="feature-icon">🤖</div>
-                <h3>AI Assistant</h3>
-                <p>Chat with our advanced AI powered by Groq Llama 3.1</p>
-                <div className="feature-stats">
-                  <span>💬 Conversations: 1,247</span>
-                  <span>⚡ Avg Response: 1.2s</span>
-                  <span>🔥 Enhanced Mode</span>
-                </div>
-              </div>
-              <div className="feature-card" onClick={() => setActiveTab('game')}>
-                <div className="feature-icon">🎮</div>
-                <h3>Game Creator</h3>
-                <p>Generate professional games with enhanced AI</p>
-                <div className="feature-stats">
-                  <span>🎯 Games Created: 89</span>
-                  <span>⭐ Quality Score: 8.5/10</span>
-                  <span>🔥 Enhanced Mode</span>
-                </div>
-              </div>
-              <div className="feature-card" onClick={() => setActiveTab('media')}>
-                <div className="feature-icon">🎨</div>
-                <h3>Media Studio</h3>
-                <p>Create stunning images with AI generation</p>
-                <div className="feature-stats">
-                  <span>🖼️ Images Generated: 456</span>
-                  <span>⭐ Quality Score: 9.2/10</span>
-                </div>
-              </div>
-              <div className="feature-card" onClick={() => setActiveTab('audio')}>
-                <div className="feature-icon">🎵</div>
-                <h3>Audio Studio</h3>
-                <p>Generate speech and music with AI</p>
-                <div className="feature-stats">
-                  <span>🎤 Speech Generated: 234</span>
-                  <span>🎵 Music Created: 156</span>
-                </div>
-              </div>
-              <div className="feature-card" onClick={() => setActiveTab('video')}>
-                <div className="feature-icon">🎬</div>
-                <h3>Video Studio</h3>
-                <p>Create amazing videos with AI generation</p>
-                <div className="feature-stats">
-                  <span>🎬 Videos Created: 78</span>
-                  <span>⭐ Quality Score: 9.5/10</span>
-                </div>
-              </div>
-            </div>
+        
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <div className="text-3xl mb-4">🎮</div>
+          <h3 className="text-xl font-semibold text-white mb-2">Game Creator</h3>
+          <p className="text-purple-200">Generate professional games with enhanced AI</p>
+          <div className="mt-4 text-sm text-purple-300">
+            <div>🎯 Games Created: 89</div>
+            <div>🏆 Quality Score: {freeAIMode ? '9.5/10' : enhancedMode ? '8.5/10' : '3.0/10'}</div>
+            {freeAIMode && <div className="text-green-400">🤖 FREE AI Mode</div>}
+            {!freeAIMode && enhancedMode && <div className="text-green-400">✨ Enhanced Mode</div>}
           </div>
-        )}
+        </div>
+        
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <div className="text-3xl mb-4">🎨</div>
+          <h3 className="text-xl font-semibold text-white mb-2">Media Studio</h3>
+          <p className="text-purple-200">Create stunning images with AI generation</p>
+          <div className="mt-4 text-sm text-purple-300">
+            <div>🖼️ Images Generated: 456</div>
+            <div>✨ Quality Score: 9.2/10</div>
+          </div>
+        </div>
 
-        {/* ✅ PRESERVED: Original chat section UNCHANGED */}
-        {activeTab === 'chat' && (
-          <div className="chat-content">
-            <h2>💬 AI Chat Assistant</h2>
-            <p>Powered by Groq Llama 3.1 - Lightning fast responses</p>
-            <div className="chat-container">
-              <div className="chat-messages">
-                {chatMessages.map((message, index) => (
-                  <div key={index} className={`message ${message.role}`}>
-                    <div className="message-content">{message.content}</div>
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <div className="text-3xl mb-4">🎵</div>
+          <h3 className="text-xl font-semibold text-white mb-2">Audio Studio</h3>
+          <p className="text-purple-200">Generate speech and music with AI</p>
+          <div className="mt-4 text-sm text-purple-300">
+            <div>🎤 Speech Generated: 234</div>
+            <div>🎶 Music Created: 156</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <div className="text-3xl mb-4">🎬</div>
+          <h3 className="text-xl font-semibold text-white mb-2">Video Studio</h3>
+          <p className="text-purple-200">Create amazing videos with AI generation</p>
+          <div className="mt-4 text-sm text-purple-300">
+            <div>🎥 Videos Created: 78</div>
+            <div>🌟 Quality Score: 9.5/10</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ✅ PRESERVED: renderChat function EXACTLY as original with Tailwind classes
+  const renderChat = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">AI Chat Assistant</h2>
+      
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 h-96 overflow-y-auto">
+        {messages.length === 0 ? (
+          <div className="text-center text-purple-200 mt-20">
+            <div className="text-4xl mb-4">💬</div>
+            <p>Start a conversation with our AI assistant!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((msg, index) => (
+              <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                  msg.type === 'user' 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-white/20 text-white'
+                }`}>
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white/20 text-white px-4 py-2 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>AI is thinking...</span>
                   </div>
-                ))}
-              </div>
-              <div className="chat-input-container">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask me anything..."
-                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                />
-                <button onClick={sendChatMessage}>Send</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 🔧 ENHANCED: Game Creator with FREE AI support */}
-        {activeTab === 'game' && (
-          <div className="game-content">
-            <h2>🎮 AI Game Creator</h2>
-            <p>Create professional games with advanced features</p>
-            
-            {/* 🆕 NEW: FREE AI badge (only shows when FREE AI selected) */}
-            {gameMode === 'free-ai' && (
-              <div style={{ 
-                background: 'linear-gradient(45deg, #00ff88, #00cc66)', 
-                color: '#000', 
-                padding: '10px', 
-                borderRadius: '8px', 
-                marginBottom: '20px',
-                fontWeight: 'bold',
-                textAlign: 'center'
-              }}>
-                ✨ FREE AI Mode Active - Revolutionary Technology!
+                </div>
               </div>
             )}
-            
-            <div className="game-form">
-              <label>Game Description:</label>
-              <textarea
-                value={gameDescription}
-                onChange={(e) => setGameDescription(e.target.value)}
-                placeholder="Describe the game you want to create... (e.g., 'Create a space shooter game with powerups, enemies, and scoring system')"
-                rows="4"
-              />
-              
-              <div className="form-row" style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Generation Mode:</label>
-                  <select 
-                    value={gameMode} 
-                    onChange={(e) => setGameMode(e.target.value)}
-                    style={{ width: '100%', padding: '8px', marginBottom: '5px' }}
-                  >
-                    <option value="enhanced">✨ Enhanced (Professional)</option>
-                    <option value="basic">🔧 Basic (Legacy)</option>
-                    <option value="free-ai">🤖 FREE AI (Revolutionary)</option>
-                  </select>
-                  <ModeDescription mode={gameMode} />
-                </div>
-                
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Expected Quality:</label>
-                  <QualityIndicator mode={gameMode} />
-                </div>
-              </div>
-              
-              <button 
-                onClick={generateGame} 
-                disabled={isGenerating}
-                className="generate-button"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  border: 'none',
-                  borderRadius: '8px',
-                  background: gameMode === 'free-ai' 
-                    ? 'linear-gradient(45deg, #00ff88, #00cc66)' 
-                    : 'linear-gradient(45deg, #667eea, #764ba2)',
-                  color: gameMode === 'free-ai' ? '#000' : '#fff',
-                  cursor: isGenerating ? 'not-allowed' : 'pointer',
-                  opacity: isGenerating ? 0.7 : 1
+          </div>
+        )}
+      </div>
+      
+      <form onSubmit={handleChatSubmit} className="flex space-x-4">
+        <input
+          type="text"
+          value={currentMessage}
+          onChange={(e) => setCurrentMessage(e.target.value)}
+          placeholder="Type your message..."
+          className="flex-1 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          disabled={isLoading}
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !currentMessage.trim()}
+          className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isLoading ? 'Sending...' : 'Send'}
+        </button>
+      </form>
+    </div>
+  )
+
+  // 🔧 ENHANCED: Game Creator with FREE AI support but preserving ALL original features
+  const renderGameCreator = () => (
+    <div className="space-y-6">
+      {/* Enhanced Header */}
+      <div className="text-center space-y-2">
+        <h2 className="text-3xl font-bold text-white">🎮 AI Game Creator</h2>
+        <p className="text-gray-300">Create professional games with advanced features</p>
+        {freeAIMode && (
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30">
+            <span className="text-green-400 text-sm font-medium">🤖 FREE AI Mode Active</span>
+          </div>
+        )}
+        {!freeAIMode && enhancedMode && (
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30">
+            <span className="text-green-400 text-sm font-medium">✨ Enhanced Mode Active</span>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleGameSubmit} className="space-y-4">
+        {/* Game Description Input */}
+        <div>
+          <label className="block text-white text-sm font-medium mb-2">
+            Game Description:
+          </label>
+          <textarea
+            value={gameDescription}
+            onChange={(e) => setGameDescription(e.target.value)}
+            placeholder="Describe the game you want to create... (e.g., 'Create a space shooter game with powerups, enemies, and scoring system')"
+            className="w-full h-32 px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            disabled={isGeneratingGame}
+          />
+        </div>
+
+        {/* Enhanced Options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Generation Mode:
+            </label>
+            <select
+              value={freeAIMode ? 'free-ai' : enhancedMode ? 'enhanced' : 'basic'}
+              onChange={(e) => {
+                if (e.target.value === 'free-ai') {
+                  setFreeAIMode(true)
+                  setEnhancedMode(false)
+                } else {
+                  setFreeAIMode(false)
+                  setEnhancedMode(e.target.value === 'enhanced')
+                }
+              }}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isGeneratingGame}
+            >
+              <option value="free-ai">🤖 FREE AI (Revolutionary)</option>
+              <option value="enhanced">✨ Enhanced (Professional)</option>
+              <option value="basic">🔧 Basic (Legacy)</option>
+            </select>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Expected Quality:
+            </label>
+            <div className={`px-3 py-2 rounded-lg border ${
+              freeAIMode 
+                ? 'bg-green-500/20 border-green-500/30' 
+                : enhancedMode 
+                ? 'bg-blue-500/20 border-blue-500/30' 
+                : 'bg-yellow-500/20 border-yellow-500/30'
+            }`}>
+              <span className={`font-medium ${
+                freeAIMode ? 'text-green-400' : enhancedMode ? 'text-blue-400' : 'text-yellow-400'
+              }`}>
+                {freeAIMode ? '🚀 Revolutionary (9/10)' : enhancedMode ? '🏆 Professional (8/10)' : '⚠️ Basic (3/10)'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Create Game Button */}
+        <button
+          type="submit"
+          disabled={isGeneratingGame || !gameDescription.trim()}
+          className={`w-full py-3 px-6 font-semibold rounded-lg transition-all duration-200 disabled:cursor-not-allowed ${
+            freeAIMode 
+              ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-700'
+              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700'
+          } text-white`}
+        >
+          {isGeneratingGame ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Generating {freeAIMode ? 'FREE AI' : enhancedMode ? 'Enhanced' : 'Basic'} Game...</span>
+            </div>
+          ) : (
+            `🚀 Create ${freeAIMode ? 'FREE AI' : enhancedMode ? 'Enhanced' : 'Basic'} Game`
+          )}
+        </button>
+      </form>
+
+      {/* Enhanced Features Info */}
+      {freeAIMode && (
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+          <h4 className="text-green-400 font-medium mb-2">🤖 FREE AI Features:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-300">
+            <div>🧠 AI-Generated Concepts</div>
+            <div>🎨 Unique Visual Design</div>
+            <div>⚡ Advanced Mechanics</div>
+            <div>📱 Mobile Optimized</div>
+            <div>🎯 Professional Quality</div>
+            <div>🔄 Never Repeats</div>
+            <div>💰 Zero Cost</div>
+            <div>🚀 Revolutionary Tech</div>
+          </div>
+        </div>
+      )}
+
+      {!freeAIMode && enhancedMode && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+          <h4 className="text-blue-400 font-medium mb-2">✨ Enhanced Features:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-300">
+            <div>🎨 Professional Graphics</div>
+            <div>🔫 Complete Shooting</div>
+            <div>⭐ Power-up System</div>
+            <div>📊 Advanced Scoring</div>
+            <div>🎯 Difficulty Scaling</div>
+            <div>💥 Particle Effects</div>
+            <div>📱 Mobile Optimized</div>
+            <div>🎵 Sound Ready</div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Metadata Display */}
+      {gameMetadata && (
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+          <h4 className="text-green-400 font-medium mb-2">🎮 Game Details:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-400">Template:</span>
+              <span className="text-white ml-2 capitalize">{gameMetadata.template}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">Features:</span>
+              <span className="text-white ml-2">{gameMetadata.features.length}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">Quality:</span>
+              <span className="text-green-400 ml-2 font-medium">{gameMetadata.quality}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {gameError && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-red-400">❌</span>
+            <span className="text-red-400 font-medium">Generation Notice:</span>
+          </div>
+          <p className="text-red-300 mt-1">{gameError}</p>
+          <button
+            onClick={() => setGameError('')}
+            className="mt-2 text-red-400 hover:text-red-300 text-sm underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Generated Game Display */}
+      {generatedGame && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-white">
+              🎮 {gameMetadata?.title || 'Generated Game'}
+            </h3>
+            <div className="flex items-center space-x-2">
+              {freeAIMode && (
+                <span className="text-green-400 text-sm">🤖 FREE AI Generated</span>
+              )}
+              {!freeAIMode && enhancedMode && (
+                <span className="text-green-400 text-sm">✅ Enhanced Quality</span>
+              )}
+              <button
+                onClick={() => {
+                  const blob = new Blob([generatedGame], { type: 'text/html' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${gameMetadata?.title || 'mythiq-game'}.html`;
+                  a.click();
+                  URL.revokeObjectURL(url);
                 }}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
               >
-                {isGenerating ? '⏳ Generating...' : 
-                 gameMode === 'free-ai' ? '🤖 Create FREE AI Game' : 
-                 gameMode === 'enhanced' ? '✨ Create Enhanced Game' : '🔧 Create Basic Game'}
+                📥 Download
               </button>
             </div>
-
-            {/* 🆕 NEW: Enhanced features display (optional) */}
-            {gameMode === 'free-ai' && (
-              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px' }}>
-                <h3>✨ FREE AI Features:</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '10px' }}>
-                  <span>🤖 AI-Generated Concepts</span>
-                  <span>🎨 Unique Visual Design</span>
-                  <span>⚡ Advanced Mechanics</span>
-                  <span>📱 Mobile Optimized</span>
-                  <span>🎯 Professional Quality</span>
-                  <span>🔄 Never Repeats</span>
-                  <span>💰 Zero Cost</span>
-                  <span>🚀 Revolutionary Tech</span>
-                </div>
-              </div>
-            )}
-
-            {gameMode === 'enhanced' && (
-              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255,165,0,0.1)', borderRadius: '8px' }}>
-                <h3>✨ Enhanced Features:</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '10px' }}>
-                  <span>🎨 Professional Graphics</span>
-                  <span>🔫 Complete Shooting</span>
-                  <span>⭐ Power-up System</span>
-                  <span>📊 Advanced Scoring</span>
-                  <span>💥 Particle Effects</span>
-                  <span>📱 Mobile Optimized</span>
-                  <span>🎵 Sound Ready</span>
-                </div>
-              </div>
-            )}
-
-            {/* ✅ ENHANCED: Game result display with better metadata */}
-            {generatedGame && (
-              <div className="game-result" style={{ marginTop: '30px' }}>
-                <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                  <h3>🎮 Game Details:</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '10px', fontSize: '14px' }}>
-                    <span>Template: {generatedGame.template || 'Standard'}</span>
-                    <span>Features: {generatedGame.features ? generatedGame.features.join(', ') : 'Complete'}</span>
-                    <span>Quality: {generatedGame.quality || 'Professional'}</span>
-                    {generatedGame.metadata && (
-                      <span>Mode: {generatedGame.metadata.mode || 'Enhanced'}</span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="enhanced-game">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                    <h3>🎮 {generatedGame.title || 'Generated Game'}</h3>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      {generatedGame.metadata?.mode === 'FREE AI' && (
-                        <span style={{ background: '#00ff88', color: '#000', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                          🤖 FREE AI Generated
-                        </span>
-                      )}
-                      {generatedGame.metadata?.fallback && (
-                        <span style={{ background: '#ffa500', color: '#000', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                          🔄 Fallback Mode
-                        </span>
-                      )}
-                      <span style={{ background: '#667eea', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                        ✅ Enhanced Quality
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="game-container" style={{ border: '2px solid #333', borderRadius: '8px', overflow: 'hidden' }}>
-                    {generatedGame.html ? (
-                      <iframe
-                        srcDoc={generatedGame.html}
-                        title="Generated Game"
-                        width="100%"
-                        height="400px"
-                        style={{ border: 'none' }}
-                      />
-                    ) : (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
-                        Game content not available
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* 🆕 NEW: Enhanced metadata display (optional) */}
-                  {generatedGame.metadata && (
-                    <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                      <h4>🔍 Generation Details:</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '10px', fontSize: '12px' }}>
-                        {generatedGame.metadata.generation_time && (
-                          <span>⏱️ Generated in: {generatedGame.metadata.generation_time}</span>
-                        )}
-                        {generatedGame.metadata.ai_model && (
-                          <span>🤖 AI Model: {generatedGame.metadata.ai_model}</span>
-                        )}
-                        {generatedGame.metadata.uniqueness && (
-                          <span>✨ Uniqueness: {generatedGame.metadata.uniqueness}</span>
-                        )}
-                        {generatedGame.metadata.mode && (
-                          <span>🎯 Mode: {generatedGame.metadata.mode}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <button 
-                    style={{
-                      marginTop: '15px',
-                      padding: '10px 20px',
-                      background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                    onClick={() => {
-                      const newWindow = window.open('', '_blank');
-                      newWindow.document.write(generatedGame.html || '<p>No game content available</p>');
-                      newWindow.document.close();
-                    }}
-                  >
-                    🚀 Open in New Window
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        )}
-
-        {/* ✅ PRESERVED: Original media section UNCHANGED */}
-        {activeTab === 'media' && (
-          <div className="media-content">
-            <h2>🎨 Media Studio</h2>
-            <p>Create stunning images with AI generation</p>
-            <div className="media-form">
-              <label>Image Description:</label>
-              <textarea
-                value={imagePrompt}
-                onChange={(e) => setImagePrompt(e.target.value)}
-                placeholder="Describe the image you want to create..."
-                rows="3"
-              />
-              <button onClick={generateImage}>🎨 Generate Image</button>
-            </div>
-            {generatedImage && (
-              <div className="image-result">
-                <img src={generatedImage} alt="Generated" style={{ maxWidth: '100%', borderRadius: '8px' }} />
-              </div>
-            )}
+          
+          <div className="bg-black/30 rounded-lg p-1 border border-white/10">
+            <iframe
+              srcDoc={generatedGame}
+              className="w-full h-96 rounded border-0"
+              title="Generated Game"
+              sandbox="allow-scripts allow-same-origin"
+            />
           </div>
-        )}
-
-        {/* ✅ PRESERVED: Original audio section UNCHANGED */}
-        {activeTab === 'audio' && (
-          <div className="audio-content">
-            <h2>🎵 Audio Studio</h2>
-            <p>Generate speech and music with AI</p>
-            <div className="audio-form">
-              <label>Audio Type:</label>
-              <select value={audioType} onChange={(e) => setAudioType(e.target.value)}>
-                <option value="speech">🎤 Speech Generation</option>
-                <option value="music">🎵 Music Generation</option>
-              </select>
-              <label>Text/Description:</label>
-              <textarea
-                value={audioText}
-                onChange={(e) => setAudioText(e.target.value)}
-                placeholder={audioType === 'speech' ? 'Enter text to convert to speech...' : 'Describe the music you want to create...'}
-                rows="3"
-              />
-              <button onClick={generateAudio}>🎵 Generate Audio</button>
-            </div>
-            {generatedAudio && (
-              <div className="audio-result">
-                <audio controls src={generatedAudio} style={{ width: '100%' }} />
-              </div>
-            )}
+          
+          <div className="text-center">
+            <button
+              onClick={() => {
+                const newWindow = window.open();
+                newWindow.document.write(generatedGame);
+                newWindow.document.close();
+              }}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            >
+              🚀 Open in New Window
+            </button>
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  )
 
-        {/* ✅ PRESERVED: Original video section UNCHANGED */}
-        {activeTab === 'video' && (
-          <div className="video-content">
-            <h2>🎬 Video Studio</h2>
-            <p>Create amazing videos with AI generation</p>
-            <div className="video-form">
-              <label>Video Description:</label>
-              <textarea
-                value={videoPrompt}
-                onChange={(e) => setVideoPrompt(e.target.value)}
-                placeholder="Describe the video you want to create..."
-                rows="3"
-              />
-              <button onClick={generateVideo}>🎬 Generate Video</button>
+  // ✅ PRESERVED: renderMediaStudio function EXACTLY as original with Tailwind classes
+  const renderMediaStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">Media Studio</h2>
+      
+      <form onSubmit={handleImageSubmit} className="space-y-4">
+        <div>
+          <label className="block text-white text-sm font-medium mb-2">
+            Image Description:
+          </label>
+          <textarea
+            value={imagePrompt}
+            onChange={(e) => setImagePrompt(e.target.value)}
+            placeholder="Describe the image you want to create..."
+            className="w-full h-32 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            disabled={isGeneratingImage}
+          />
+        </div>
+        
+        <button
+          type="submit"
+          disabled={isGeneratingImage || !imagePrompt.trim()}
+          className="w-full py-3 px-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-lg transition-all duration-200 disabled:cursor-not-allowed"
+        >
+          {isGeneratingImage ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Generating Image...</span>
             </div>
-            {generatedVideo && (
-              <div className="video-result">
-                <div className="video-details">
-                  <h3>🎬 Video Details:</h3>
-                  <div className="details-grid">
-                    <span>Model: {generatedVideo.model_used || 'Mochi-1'}</span>
-                    <span>Quality: {generatedVideo.quality || 'Highest'}</span>
-                    <span>Duration: {generatedVideo.duration || '6'} seconds</span>
-                    <span>Generation Time: {generatedVideo.generation_time || '45'} seconds</span>
-                    <span>Resolution: {generatedVideo.resolution || '848x480'}</span>
-                    <span>Format: {generatedVideo.format || 'mp4'}</span>
-                    <span>File Size: {generatedVideo.file_size || '2.5 MB'}</span>
-                  </div>
-                </div>
-                {generatedVideo.video_url && (
-                  <video controls src={generatedVideo.video_url} style={{ width: '100%', borderRadius: '8px' }} />
+          ) : (
+            '🎨 Generate Image'
+          )}
+        </button>
+      </form>
+      
+      {generatedImage && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">Generated Image:</h3>
+          {generatedImage.startsWith('data:image') || generatedImage.startsWith('http') ? (
+            <img 
+              src={generatedImage} 
+              alt="Generated" 
+              className="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
+            />
+          ) : (
+            <div className="text-center text-purple-200 py-8">
+              <div className="text-4xl mb-4">🎨</div>
+              <p>{generatedImage}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  // ✅ PRESERVED: renderAudioStudio function EXACTLY as original with ALL features
+  const renderAudioStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">Audio Studio</h2>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Speech Generation */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">🎤 Speech Generation</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Voice Preset:
+              </label>
+              <select
+                value={selectedVoice}
+                onChange={(e) => setSelectedVoice(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={isAudioLoading}
+              >
+                {voicePresets.length > 0 ? (
+                  voicePresets.map((voice, index) => (
+                    <option key={index} value={voice.id || voice}>
+                      {voice.name || voice}
+                    </option>
+                  ))
+                ) : (
+                  <option value="v2/en_speaker_6">Default Voice</option>
                 )}
-              </div>
-            )}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Text to Speech:
+              </label>
+              <textarea
+                value={speechText}
+                onChange={(e) => setSpeechText(e.target.value)}
+                placeholder="Enter text to convert to speech..."
+                className="w-full h-24 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                disabled={isAudioLoading}
+              />
+            </div>
+            
+            <button
+              onClick={generateSpeech}
+              disabled={isAudioLoading || !speechText.trim()}
+              className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            >
+              {isAudioLoading ? 'Generating...' : '🎤 Generate Speech'}
+            </button>
           </div>
-        )}
+        </div>
+
+        {/* Music Generation */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">🎵 Music Generation</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Music Description:
+              </label>
+              <textarea
+                value={musicPrompt}
+                onChange={(e) => setMusicPrompt(e.target.value)}
+                placeholder="Describe the music you want to create..."
+                className="w-full h-24 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                disabled={isAudioLoading}
+              />
+            </div>
+            
+            <button
+              onClick={generateMusic}
+              disabled={isAudioLoading || !musicPrompt.trim()}
+              className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            >
+              {isAudioLoading ? 'Generating...' : '🎵 Generate Music'}
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Audio Result */}
+      {audioResult && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">Audio Result:</h3>
+          <div className="text-purple-200 whitespace-pre-wrap">{audioResult}</div>
+        </div>
+      )}
+    </div>
+  )
+
+  // ✅ PRESERVED: renderVideoStudio function EXACTLY as original with ALL features
+  const renderVideoStudio = () => (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-bold text-white text-center">Video Studio</h2>
+      
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-white text-sm font-medium mb-2">
+              Video Description:
+            </label>
+            <textarea
+              value={videoPrompt}
+              onChange={(e) => setVideoPrompt(e.target.value)}
+              placeholder="Describe the video you want to create..."
+              className="w-full h-32 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              disabled={isGeneratingVideo}
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Duration (seconds):
+              </label>
+              <input
+                type="number"
+                value={videoDuration}
+                onChange={(e) => setVideoDuration(parseInt(e.target.value) || 6)}
+                min="1"
+                max="30"
+                className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={isGeneratingVideo}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Model Type:
+              </label>
+              <select
+                value={videoModelType}
+                onChange={(e) => setVideoModelType(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={isGeneratingVideo}
+              >
+                <option value="auto">Auto-select</option>
+                {Object.entries(videoModels).map(([key, model]) => (
+                  <option key={key} value={key}>
+                    {model.name || key}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <button
+            onClick={generateVideo}
+            disabled={isGeneratingVideo || !videoPrompt.trim()}
+            className="w-full py-3 px-6 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-lg transition-all duration-200 disabled:cursor-not-allowed"
+          >
+            {isGeneratingVideo ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Generating Video...</span>
+              </div>
+            ) : (
+              '🎬 Generate Video'
+            )}
+          </button>
+        </div>
+      </div>
+      
+      {generatedVideo && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          <h3 className="text-xl font-semibold text-white mb-4">Video Result:</h3>
+          <div className="text-purple-200 whitespace-pre-wrap">{generatedVideo}</div>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      {/* Navigation */}
+      <nav className="bg-black/20 backdrop-blur-sm border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <h1 className="text-2xl font-bold text-white">Mythiq</h1>
+              </div>
+            </div>
+            <div className="flex space-x-4">
+              {[
+                { id: 'home', label: '🏠 Home', number: '1' },
+                { id: 'chat', label: '💬 AI Chat', number: '2' },
+                { id: 'game', label: '🎮 Game Creator', number: '3' },
+                { id: 'media', label: '🎨 Media Studio', number: '4' },
+                { id: 'audio', label: '🎵 Audio Studio', number: '5' },
+                { id: 'video', label: '🎬 Video Studio', number: '6' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors relative ${
+                    activeTab === tab.id
+                      ? 'bg-white/20 text-white'
+                      : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {tab.number}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          {activeTab === 'home' && renderHome()}
+          {activeTab === 'chat' && renderChat()}
+          {activeTab === 'game' && renderGameCreator()}
+          {activeTab === 'media' && renderMediaStudio()}
+          {activeTab === 'audio' && renderAudioStudio()}
+          {activeTab === 'video' && renderVideoStudio()}
+        </div>
       </main>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
