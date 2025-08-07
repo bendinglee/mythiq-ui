@@ -1030,7 +1030,7 @@ function App() {
                   <video controls className="w-full rounded-lg">
                     <source src={generatedVideo} type="video/mp4" />
                     Your browser does not support the video element.
-                  </source>
+                  </video>
                 </div>
               )}
             </div>
