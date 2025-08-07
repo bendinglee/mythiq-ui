@@ -15,7 +15,7 @@ function App() {
   const [currentMessage, setCurrentMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [gameDescription, setGameDescription] = useState('')
-  const [generatedGame, setGeneratedGame] = useState(null) // 🔥 CHANGED: Now stores full game object
+  const [generatedGame, setGeneratedGame] = useState(null) // 🔥 FIXED: Now stores full game object
   const [isGeneratingGame, setIsGeneratingGame] = useState(false)
   const [gameError, setGameError] = useState('')
   const [generatedImage, setGeneratedImage] = useState('')
@@ -150,7 +150,7 @@ function App() {
     }
   }
 
-  // 🔥 FIXED: ULTIMATE Game Creator Handler with Complete File Delivery
+  // 🔥 FIXED: ULTIMATE Game Creator Handler with Correct Response Format Handling
   const handleUltimateGameSubmit = async (e) => {
     e.preventDefault()
     if (!gameDescription.trim() || isGeneratingGame) return
@@ -184,6 +184,9 @@ function App() {
         mode: ultimateMode ? 'ultimate' : freeAIMode ? 'free-ai' : enhancedMode ? 'enhanced' : 'basic'
       }
 
+      console.log('📡 Making request to:', endpoint)
+      console.log('📦 Request body:', requestBody)
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -192,10 +195,19 @@ function App() {
         body: JSON.stringify(requestBody)
       })
 
+      console.log('📨 Response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
       const data = await response.json()
       console.log('✅ Game response received:', data)
 
+      // 🔥 FIXED: Handle new backend response format correctly
       if (data.success && data.game) {
+        console.log('🎮 Game data found:', data.game)
+        
         setGeneratedGame(data.game)
         setGameError('')
         
@@ -203,7 +215,9 @@ function App() {
         window.lastGeneratedGame = data.game
         window.lastGameFiles = data.files
         
-        // Set metadata
+        console.log('💾 Stored game files:', data.files)
+        
+        // Set metadata for display
         setGameMetadata({
           template: data.game.type || (ultimateMode ? 'Ultimate AI-Enhanced' : freeAIMode ? 'AI Generated' : 'Enhanced'),
           features: data.game.features || (ultimateMode ? [
@@ -225,23 +239,38 @@ function App() {
         console.log('🎉 Game generated successfully!')
       } else {
         // Handle API errors with user-friendly messages
-        const errorMessage = data.user_message || data.error || 'Game generation failed. Please try again.'
+        console.error('❌ Backend returned error:', data)
+        const errorMessage = data.user_message || data.error || 'Game generation failed. Please try again with a different description.'
         setGameError(errorMessage)
         setGeneratedGame(null)
-        console.error('❌ Game generation failed:', data)
       }
 
     } catch (error) {
       console.error('❌ Game generation error:', error)
-      setGameError('Network error. Please check your connection and try again.')
+      
+      // More detailed error handling
+      if (error.message.includes('Failed to fetch')) {
+        setGameError('Network error: Unable to connect to game generation service. Please check your internet connection and try again.')
+      } else if (error.message.includes('500')) {
+        setGameError('Server error: The game generation service is temporarily unavailable. Please try again in a few moments.')
+      } else if (error.message.includes('404')) {
+        setGameError('Service error: Game generation endpoint not found. Please contact support.')
+      } else {
+        setGameError(`Generation failed: ${error.message}. Please try again with a different description.`)
+      }
+      
       setGeneratedGame(null)
     } finally {
       setIsGeneratingGame(false)
     }
   }
 
-  // 🔥 NEW: Download Game Function
+  // 🔥 FIXED: Download Game Function with Proper Error Handling
   const downloadGame = () => {
+    console.log('📦 Download requested')
+    console.log('🔍 Checking game files:', window.lastGameFiles)
+    console.log('🔍 Checking game data:', window.lastGeneratedGame)
+    
     if (!window.lastGameFiles || !window.lastGeneratedGame) {
       alert('No game available for download. Please generate a game first.')
       return
@@ -250,11 +279,13 @@ function App() {
     try {
       // Use the download URL from the backend
       const downloadUrl = `${GAMEMAKER_API}${window.lastGameFiles.download_url}`
+      console.log('📥 Download URL:', downloadUrl)
       
       // Create a temporary link to trigger download
       const link = document.createElement('a')
       link.href = downloadUrl
       link.download = `${window.lastGeneratedGame.title.replace(/\s+/g, '_')}_game.zip`
+      link.target = '_blank' // Open in new tab as fallback
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -262,12 +293,16 @@ function App() {
       console.log('📦 Game download started')
     } catch (error) {
       console.error('❌ Download error:', error)
-      alert('Download failed. Please try again.')
+      alert(`Download failed: ${error.message}. Please try again.`)
     }
   }
 
-  // 🔥 NEW: Open Game in New Window Function
+  // 🔥 FIXED: Open Game in New Window Function with Proper Error Handling
   const openGameInNewWindow = () => {
+    console.log('🎮 Open in new window requested')
+    console.log('🔍 Checking game files:', window.lastGameFiles)
+    console.log('🔍 Checking game data:', window.lastGeneratedGame)
+    
     if (!window.lastGameFiles || !window.lastGeneratedGame) {
       alert('No game available to open. Please generate a game first.')
       return
@@ -276,6 +311,7 @@ function App() {
     try {
       // Use the play URL from the backend
       const playUrl = `${GAMEMAKER_API}${window.lastGameFiles.html_url}`
+      console.log('🎮 Play URL:', playUrl)
       
       // Open in new window/tab
       const gameWindow = window.open(playUrl, '_blank', 'width=1000,height=700,scrollbars=yes,resizable=yes')
@@ -287,7 +323,7 @@ function App() {
       }
     } catch (error) {
       console.error('❌ Open game error:', error)
-      alert('Failed to open game. Please try again.')
+      alert(`Failed to open game: ${error.message}. Please try again.`)
     }
   }
 
@@ -437,7 +473,7 @@ function App() {
     return 'Basic functional games'
   }
 
-  // 🔥 NEW: Render Game Display with Complete File Delivery
+  // 🔥 FIXED: Render Game Display with Complete File Delivery and Proper Error Handling
   const renderGameDisplay = () => {
     if (isGeneratingGame) {
       return (
@@ -524,17 +560,25 @@ function App() {
             )}
           </div>
           
-          {/* Game Preview iframe */}
-          <div className="bg-white rounded-lg overflow-hidden" style={{height: '400px'}}>
-            <iframe
-              srcDoc={generatedGame.html}
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              sandbox="allow-scripts allow-same-origin"
-              title={generatedGame.title}
-              className="w-full h-full"
-            />
+          {/* 🔥 FIXED: Game Preview iframe with proper HTML content */}
+          <div className="bg-white rounded-lg overflow-hidden border-2 border-gray-600" style={{height: '400px'}}>
+            {generatedGame.html ? (
+              <iframe
+                srcDoc={generatedGame.html}
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+                title={generatedGame.title}
+                className="w-full h-full"
+                onLoad={() => console.log('🎮 Game iframe loaded successfully')}
+                onError={(e) => console.error('❌ Game iframe error:', e)}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full bg-gray-100">
+                <p className="text-gray-600">Game content not available</p>
+              </div>
+            )}
           </div>
           
           <div className="mt-4 text-center">
@@ -710,7 +754,7 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 UPDATED: Ultimate Game Creator Tab with Complete File Delivery */}
+        {/* 🔥 FIXED: Ultimate Game Creator Tab with Complete File Delivery */}
         {activeTab === 'game' && (
           <div className="max-w-4xl mx-auto">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
@@ -766,7 +810,7 @@ function App() {
                 </button>
               </form>
 
-              {/* 🔥 NEW: Game Display with Complete File Delivery */}
+              {/* 🔥 FIXED: Game Display with Complete File Delivery */}
               {renderGameDisplay()}
 
               {/* ✅ PRESERVED: Game Metadata Display */}
@@ -986,7 +1030,7 @@ function App() {
                   <video controls className="w-full rounded-lg">
                     <source src={generatedVideo} type="video/mp4" />
                     Your browser does not support the video element.
-                  </video>
+                  </source>
                 </div>
               )}
             </div>
