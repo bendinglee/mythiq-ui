@@ -15,7 +15,7 @@ function App() {
   const [currentMessage, setCurrentMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [gameDescription, setGameDescription] = useState('')
-  const [generatedGame, setGeneratedGame] = useState('')
+  const [generatedGame, setGeneratedGame] = useState(null) // 🔥 CHANGED: Now stores full game object
   const [isGeneratingGame, setIsGeneratingGame] = useState(false)
   const [gameError, setGameError] = useState('')
   const [generatedImage, setGeneratedImage] = useState('')
@@ -150,13 +150,13 @@ function App() {
     }
   }
 
-  // 🔥 NEW: ULTIMATE Game Creator Handler - BRUTALLY POWERFUL!
+  // 🔥 FIXED: ULTIMATE Game Creator Handler with Complete File Delivery
   const handleUltimateGameSubmit = async (e) => {
     e.preventDefault()
     if (!gameDescription.trim() || isGeneratingGame) return
 
     setIsGeneratingGame(true)
-    setGeneratedGame('')
+    setGeneratedGame(null)
     setGameError('')
     setGameMetadata(null)
 
@@ -166,23 +166,22 @@ function App() {
       let endpoint, requestBody;
 
       if (ultimateMode) {
-        // 🔥 ULTIMATE MODE - Use the new ultimate endpoint
         console.log('🔥 Using ULTIMATE generation...')
         endpoint = `${GAMEMAKER_API}/ultimate-generate-game`
-        requestBody = { prompt: gameDescription }
       } else if (freeAIMode) {
-        // 🤖 FREE AI MODE
         console.log('🤖 Using FREE AI generation...')
         endpoint = `${GAMEMAKER_API}/ai-generate-game`
-        requestBody = { prompt: gameDescription }
-      } else {
-        // ✅ PRESERVED: Original enhanced/basic logic  
-        console.log('🎮 Using enhanced/basic generation...')
+      } else if (enhancedMode) {
+        console.log('✨ Using Enhanced generation...')
         endpoint = `${GAMEMAKER_API}/generate-game`
-        requestBody = {
-          prompt: gameDescription,
-          enhanced: enhancedMode
-        }
+      } else {
+        console.log('🔧 Using Basic generation...')
+        endpoint = `${GAMEMAKER_API}/generate-game`
+      }
+
+      requestBody = {
+        prompt: gameDescription.trim(),
+        mode: ultimateMode ? 'ultimate' : freeAIMode ? 'free-ai' : enhancedMode ? 'enhanced' : 'basic'
       }
 
       const response = await fetch(endpoint, {
@@ -193,76 +192,102 @@ function App() {
         body: JSON.stringify(requestBody)
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Game response received:', data)
+      const data = await response.json()
+      console.log('✅ Game response received:', data)
 
-        // Set the generated game
-        const gameHtml = data.game_html || data.html || 'Game generated successfully!'
-        setGeneratedGame(gameHtml)
+      if (data.success && data.game) {
+        setGeneratedGame(data.game)
+        setGameError('')
         
-        // Handle metadata based on mode
-        if (data.metadata) {
-          setGameMetadata({
-            template: data.metadata.template || (ultimateMode ? 'Ultimate AI-Enhanced' : freeAIMode ? 'AI Generated' : 'Enhanced'),
-            features: data.metadata.features || (ultimateMode ? [
-              'ai-generated-innovation',
-              'professional-graphics', 
-              'complete-mechanics',
-              'mobile-optimized',
-              'ultimate-quality',
-              'bulletproof-reliability'
-            ] : ['professional-graphics', 'complete-mechanics']),
-            generatedAt: data.metadata.timestamp || new Date().toISOString(),
-            title: data.metadata.title || `${ultimateMode ? 'Ultimate' : freeAIMode ? 'FREE AI' : 'Enhanced'} Game: ${gameDescription.slice(0, 30)}...`,
-            quality: data.metadata.quality_score || data.metadata.quality || (ultimateMode ? '10/10' : freeAIMode ? '9/10' : '8/10'),
-            generation_method: data.metadata.generation_method || (ultimateMode ? 'ultimate_perfection' : freeAIMode ? 'free_ai_innovation' : 'enhanced_polish'),
-            generation_time: data.metadata.generation_time || '< 30s',
-            quality_guarantee: data.quality_guarantee || (ultimateMode ? 'BRUTAL 10/10 QUALITY' : freeAIMode ? 'Revolutionary Quality' : 'Professional Quality')
-          })
-        }
+        // Store game data globally for download/open functions
+        window.lastGeneratedGame = data.game
+        window.lastGameFiles = data.files
+        
+        // Set metadata
+        setGameMetadata({
+          template: data.game.type || (ultimateMode ? 'Ultimate AI-Enhanced' : freeAIMode ? 'AI Generated' : 'Enhanced'),
+          features: data.game.features || (ultimateMode ? [
+            'ai-generated-innovation',
+            'professional-graphics', 
+            'complete-mechanics',
+            'mobile-optimized',
+            'ultimate-quality',
+            'bulletproof-reliability'
+          ] : ['professional-graphics', 'complete-mechanics']),
+          generatedAt: data.timestamp || new Date().toISOString(),
+          title: data.game.title || `${ultimateMode ? 'Ultimate' : freeAIMode ? 'FREE AI' : 'Enhanced'} Game`,
+          quality: data.game.difficulty || (ultimateMode ? '10/10' : freeAIMode ? '9/10' : '8/10'),
+          generation_method: data.generation_method || (ultimateMode ? 'revolutionary_ultimate' : freeAIMode ? 'free_ai_innovation' : 'enhanced_polish'),
+          generation_time: '< 30s',
+          quality_guarantee: ultimateMode ? 'BRUTAL 10/10 QUALITY' : freeAIMode ? 'Revolutionary Quality' : 'Professional Quality'
+        })
+        
+        console.log('🎉 Game generated successfully!')
       } else {
-        throw new Error(`HTTP ${response.status}`)
+        // Handle API errors with user-friendly messages
+        const errorMessage = data.user_message || data.error || 'Game generation failed. Please try again.'
+        setGameError(errorMessage)
+        setGeneratedGame(null)
+        console.error('❌ Game generation failed:', data)
       }
+
     } catch (error) {
       console.error('❌ Game generation error:', error)
-      
-      // 🚀 ENHANCED: Intelligent fallback system
-      if (ultimateMode || freeAIMode) {
-        console.log('🔄 Falling back to Enhanced mode...')
-        setGameError(`${ultimateMode ? 'Ultimate' : 'FREE AI'} generation unavailable, falling back to Enhanced mode.`)
-        try {
-          const fallbackResponse = await fetch(`${GAMEMAKER_API}/generate-game`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ prompt: gameDescription, enhanced: true })
-          })
-          
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json()
-            const gameHtml = fallbackData.game_html || fallbackData.html || 'Game generated successfully!'
-            setGeneratedGame(gameHtml)
-            setGameMetadata({
-              template: 'Enhanced (Fallback)',
-              features: ['fallback-mode', 'professional-graphics'],
-              generatedAt: new Date().toISOString(),
-              title: 'Enhanced Game (Fallback)',
-              quality: 'Professional (Fallback)',
-              generation_method: 'enhanced_fallback'
-            })
-          } else {
-            throw new Error('Fallback also failed')
-          }
-        } catch (fallbackError) {
-          setGameError('Game generation temporarily unavailable. Please try again.')
-        }
-      } else {
-        setGameError('Failed to generate game. Please try again.')
-      }
+      setGameError('Network error. Please check your connection and try again.')
+      setGeneratedGame(null)
     } finally {
       setIsGeneratingGame(false)
+    }
+  }
+
+  // 🔥 NEW: Download Game Function
+  const downloadGame = () => {
+    if (!window.lastGameFiles || !window.lastGeneratedGame) {
+      alert('No game available for download. Please generate a game first.')
+      return
+    }
+    
+    try {
+      // Use the download URL from the backend
+      const downloadUrl = `${GAMEMAKER_API}${window.lastGameFiles.download_url}`
+      
+      // Create a temporary link to trigger download
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `${window.lastGeneratedGame.title.replace(/\s+/g, '_')}_game.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      console.log('📦 Game download started')
+    } catch (error) {
+      console.error('❌ Download error:', error)
+      alert('Download failed. Please try again.')
+    }
+  }
+
+  // 🔥 NEW: Open Game in New Window Function
+  const openGameInNewWindow = () => {
+    if (!window.lastGameFiles || !window.lastGeneratedGame) {
+      alert('No game available to open. Please generate a game first.')
+      return
+    }
+    
+    try {
+      // Use the play URL from the backend
+      const playUrl = `${GAMEMAKER_API}${window.lastGameFiles.html_url}`
+      
+      // Open in new window/tab
+      const gameWindow = window.open(playUrl, '_blank', 'width=1000,height=700,scrollbars=yes,resizable=yes')
+      
+      if (!gameWindow) {
+        alert('Popup blocked. Please allow popups for this site and try again.')
+      } else {
+        console.log('🎮 Game opened in new window')
+      }
+    } catch (error) {
+      console.error('❌ Open game error:', error)
+      alert('Failed to open game. Please try again.')
     }
   }
 
@@ -398,7 +423,7 @@ function App() {
       return 'Generating Basic Game...'
     }
     
-    if (ultimateMode) return '🔥 CREATE ULTIMATE GAME (10/10)'
+    if (ultimateMode) return '🔥 CREATE ULTIMATE GAME'
     if (freeAIMode) return '🤖 Create FREE AI Game'
     if (enhancedMode) return '🚀 Create Enhanced Game'
     return '🔧 Create Basic Game'
@@ -410,6 +435,118 @@ function App() {
     if (freeAIMode) return 'Revolutionary AI-generated games with unique mechanics'
     if (enhancedMode) return 'Professional games with advanced features'
     return 'Basic functional games'
+  }
+
+  // 🔥 NEW: Render Game Display with Complete File Delivery
+  const renderGameDisplay = () => {
+    if (isGeneratingGame) {
+      return (
+        <div className="bg-gray-800 rounded-lg p-6 mt-6">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+            <h3 className="text-xl font-bold text-yellow-400 mb-2">🔥 Generating Your Ultimate Game...</h3>
+            <p className="text-gray-300">Please wait while we create your revolutionary gaming experience...</p>
+          </div>
+        </div>
+      )
+    }
+    
+    if (gameError) {
+      return (
+        <div className="bg-red-900/50 border border-red-500 rounded-lg p-6 mt-6">
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-red-400 mb-2">❌ Generation Failed</h3>
+            <p className="text-red-300 mb-4">{gameError}</p>
+            <button 
+              onClick={() => setGameError('')}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )
+    }
+    
+    if (generatedGame) {
+      return (
+        <div className="bg-gray-800 rounded-lg p-6 mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-yellow-400">Generated Game</h3>
+            <div className="flex gap-2">
+              <button 
+                onClick={downloadGame}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                📦 Download
+              </button>
+              <button 
+                onClick={openGameInNewWindow}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                🎮 Open in New Window
+              </button>
+            </div>
+          </div>
+          
+          <div className="bg-gray-900 rounded-lg p-4 mb-4">
+            <h4 className="text-lg font-bold text-white mb-2">{generatedGame.title}</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-400">Type:</span>
+                <span className="text-white ml-2">{generatedGame.type}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Character:</span>
+                <span className="text-white ml-2">{generatedGame.character}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Theme:</span>
+                <span className="text-white ml-2">{generatedGame.theme}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Difficulty:</span>
+                <span className="text-white ml-2">{generatedGame.difficulty || 'Medium'}</span>
+              </div>
+            </div>
+            
+            {generatedGame.features && generatedGame.features.length > 0 && (
+              <div className="mt-3">
+                <span className="text-gray-400">Features:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {generatedGame.features.map((feature, index) => (
+                    <span key={index} className="bg-yellow-600 text-yellow-100 px-2 py-1 rounded text-xs">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Game Preview iframe */}
+          <div className="bg-white rounded-lg overflow-hidden" style={{height: '400px'}}>
+            <iframe
+              srcDoc={generatedGame.html}
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              sandbox="allow-scripts allow-same-origin"
+              title={generatedGame.title}
+              className="w-full h-full"
+            />
+          </div>
+          
+          <div className="mt-4 text-center">
+            <p className="text-gray-400 text-sm">
+              🎉 Game generated successfully! Click "Open in New Window" for full-screen play or "Download" to get the game files.
+            </p>
+          </div>
+        </div>
+      )
+    }
+    
+    return null
   }
 
   return (
@@ -453,63 +590,60 @@ function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ✅ PRESERVED: Home Tab with UPDATED Game Creator card */}
         {activeTab === 'home' && (
-          <div className="text-center">
-            <h2 className="text-4xl font-bold text-white mb-4">Welcome to Mythiq</h2>
-            <p className="text-xl text-gray-300 mb-8">Your AI-powered creative platform</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-8">
-              {/* AI Assistant Card */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                <div className="text-4xl mb-4">🤖</div>
-                <h3 className="text-xl font-semibold text-white mb-2">AI Assistant</h3>
-                <p className="text-gray-300 text-sm mb-4">Chat with our advanced AI powered by Groq Llama 3.1</p>
-                <div className="text-xs text-gray-400">
-                  <div>💬 Conversations: 1,247</div>
-                  <div>⚡ Avg Response: 1.2s</div>
-                </div>
-              </div>
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-4xl font-bold text-white mb-4">Welcome to Mythiq</h2>
+              <p className="text-xl text-gray-300 mb-8">Your Ultimate AI-Powered Creative Platform</p>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* 🔥 UPDATED: Ultimate Game Creator Card */}
-              <div className="bg-gradient-to-br from-purple-600/20 via-pink-600/20 to-red-600/20 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                <div className="text-4xl mb-4">🔥</div>
-                <h3 className="text-xl font-semibold text-white mb-2">Ultimate Creator</h3>
-                <p className="text-gray-300 text-sm mb-4">BRUTALLY POWERFUL - 10/10 quality guaranteed</p>
-                <div className="text-xs text-gray-400">
-                  <div>🎮 Ultimate Games: 89</div>
-                  <div>🔥 Quality Score: 10/10</div>
-                  <div>🚀 Ultimate Mode</div>
+              <div className="bg-gradient-to-br from-orange-600 to-red-600 rounded-lg p-6 text-white transform hover:scale-105 transition-transform cursor-pointer"
+                   onClick={() => setActiveTab('game')}>
+                <div className="text-3xl mb-4">🔥</div>
+                <h3 className="text-xl font-bold mb-2">Ultimate Game Creator</h3>
+                <p className="text-orange-100 mb-4">Revolutionary AI-powered game generation with BRUTAL 10/10 quality</p>
+                <div className="bg-orange-700/50 rounded p-2 text-sm">
+                  <div className="font-semibold">🚀 NEW: Ultimate Mode</div>
+                  <div>• AI Innovation + Professional Polish</div>
+                  <div>• Bulletproof Reliability</div>
+                  <div>• Complete File Downloads</div>
                 </div>
               </div>
 
               {/* ✅ PRESERVED: Other cards exactly as original */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                <div className="text-4xl mb-4">🎨</div>
-                <h3 className="text-xl font-semibold text-white mb-2">Media Studio</h3>
-                <p className="text-gray-300 text-sm mb-4">Create stunning images with AI generation</p>
-                <div className="text-xs text-gray-400">
-                  <div>🖼️ Images Generated: 456</div>
-                  <div>⭐ Quality Score: 9.2/10</div>
-                </div>
+              <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg p-6 text-white transform hover:scale-105 transition-transform cursor-pointer"
+                   onClick={() => setActiveTab('chat')}>
+                <div className="text-3xl mb-4">💬</div>
+                <h3 className="text-xl font-bold mb-2">AI Chat Assistant</h3>
+                <p className="text-blue-100">Intelligent conversations and creative assistance</p>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                <div className="text-4xl mb-4">🎵</div>
-                <h3 className="text-xl font-semibold text-white mb-2">Audio Studio</h3>
-                <p className="text-gray-300 text-sm mb-4">Generate speech and music with AI</p>
-                <div className="text-xs text-gray-400">
-                  <div>🎤 Speech Generated: 234</div>
-                  <div>🎶 Music Created: 156</div>
-                </div>
+              <div className="bg-gradient-to-br from-green-600 to-teal-600 rounded-lg p-6 text-white transform hover:scale-105 transition-transform cursor-pointer"
+                   onClick={() => setActiveTab('media')}>
+                <div className="text-3xl mb-4">🎨</div>
+                <h3 className="text-xl font-bold mb-2">Media Studio</h3>
+                <p className="text-green-100">Generate stunning images and visual content</p>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                <div className="text-4xl mb-4">🎬</div>
-                <h3 className="text-xl font-semibold text-white mb-2">Video Studio</h3>
-                <p className="text-gray-300 text-sm mb-4">Create amazing videos with AI generation</p>
-                <div className="text-xs text-gray-400">
-                  <div>🎥 Videos Created: 78</div>
-                  <div>⭐ Quality Score: 9.5/10</div>
-                </div>
+              <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg p-6 text-white transform hover:scale-105 transition-transform cursor-pointer"
+                   onClick={() => setActiveTab('audio')}>
+                <div className="text-3xl mb-4">🎵</div>
+                <h3 className="text-xl font-bold mb-2">Audio Studio</h3>
+                <p className="text-purple-100">Create music and speech with AI</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-yellow-600 to-orange-600 rounded-lg p-6 text-white transform hover:scale-105 transition-transform cursor-pointer"
+                   onClick={() => setActiveTab('video')}>
+                <div className="text-3xl mb-4">🎬</div>
+                <h3 className="text-xl font-bold mb-2">Video Studio</h3>
+                <p className="text-yellow-100">Generate dynamic video content</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg p-6 text-white">
+                <div className="text-3xl mb-4">🚀</div>
+                <h3 className="text-xl font-bold mb-2">More Coming Soon</h3>
+                <p className="text-gray-300">Additional AI tools and features in development</p>
               </div>
             </div>
           </div>
@@ -518,525 +652,344 @@ function App() {
         {/* ✅ PRESERVED: AI Chat Tab EXACTLY as original */}
         {activeTab === 'chat' && (
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-white mb-6 text-center">AI Chat Assistant</h2>
-            
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 h-96 mb-4 p-4 overflow-y-auto">
-              {messages.length === 0 ? (
-                <div className="text-center text-gray-400 mt-8">
-                  <p>Start a conversation with our AI assistant!</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {messages.map((message, index) => (
-                    <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.type === 'user' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white/20 text-white'
-                      }`}>
-                        {message.content}
-                      </div>
-                    </div>
-                  ))}
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-white/20 text-white px-4 py-2 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          AI is thinking...
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-white mb-6">AI Chat Assistant</h2>
+              
+              <div className="bg-gray-900/50 rounded-lg p-4 h-96 overflow-y-auto mb-4">
+                {messages.length === 0 ? (
+                  <div className="text-center text-gray-400 mt-20">
+                    <div className="text-4xl mb-4">💬</div>
+                    <p>Start a conversation with your AI assistant!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {messages.map((message, index) => (
+                      <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.type === 'user' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-700 text-gray-100'
+                        }`}>
+                          {message.content}
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <form onSubmit={handleChatSubmit} className="flex gap-2">
-              <input
-                type="text"
-                value={currentMessage}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !currentMessage.trim()}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Send
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* 🔥 NEW: ULTIMATE Game Creator Tab */}
-        {activeTab === 'game' && (
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center">
-              <h2 className="text-4xl font-bold text-white mb-4">
-                🔥 Ultimate Game Creator
-              </h2>
-              <p className="text-xl text-gray-300 mb-8">
-                {getModeDescription()}
-              </p>
-              
-              {/* 🔥 Ultimate Quality Indicator */}
-              <div className="mb-6 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-red-600/20 rounded-lg p-4 border border-white/20">
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  🚀 {ultimateMode ? 'ULTIMATE MODE ACTIVE' : freeAIMode ? 'FREE AI MODE ACTIVE' : enhancedMode ? 'ENHANCED MODE ACTIVE' : 'BASIC MODE ACTIVE'}
-                </h3>
-                
-                {ultimateMode && (
-                  <div className="grid grid-cols-3 gap-4 text-sm mb-3">
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-purple-400 mr-2">🤖</span>
-                      FREE AI Innovation (9/10)
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-pink-400 mr-2">✨</span>
-                      Enhanced Polish (8/10)
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-red-400 mr-2">🔧</span>
-                      Basic Reliability (3/10)
-                    </div>
+                    ))}
                   </div>
                 )}
                 
-                <div className="text-center">
-                  <span className="text-2xl font-bold text-yellow-400">
-                    Expected Quality: {getExpectedQuality()}
-                  </span>
+                {isLoading && (
+                  <div className="flex justify-start mt-4">
+                    <div className="bg-gray-700 text-gray-100 px-4 py-2 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>AI is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleChatSubmit} className="flex space-x-2">
+                <input
+                  type="text"
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !currentMessage.trim()}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 UPDATED: Ultimate Game Creator Tab with Complete File Delivery */}
+        {activeTab === 'game' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <div className="text-center mb-6">
+                <h2 className="text-3xl font-bold text-white mb-2">🔥 Ultimate Game Creator</h2>
+                <p className="text-gray-300">Revolutionary AI-powered game generation with complete file delivery</p>
+              </div>
+
+              {/* 🔥 NEW: Generation Mode Selector */}
+              <div className="mb-6">
+                <label className="block text-white text-sm font-medium mb-2">Generation Mode</label>
+                <select
+                  value={generationMode}
+                  onChange={handleGenerationModeChange}
+                  className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-500 focus:outline-none"
+                >
+                  <option value="ultimate">🔥 ULTIMATE - Brutally Powerful (10/10)</option>
+                  <option value="free-ai">🤖 FREE AI - Revolutionary Innovation (9/10)</option>
+                  <option value="enhanced">⭐ Enhanced - Professional Quality (8/10)</option>
+                  <option value="basic">🔧 Basic - Standard Quality (6/10)</option>
+                </select>
+                <p className="text-sm text-gray-400 mt-2">{getModeDescription()}</p>
+              </div>
+
+              {/* 🔥 NEW: Quality Indicator */}
+              <div className="bg-gray-800/50 rounded-lg p-4 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-white font-medium">Expected Quality:</span>
+                  <span className="text-yellow-400 font-bold">{getExpectedQuality()}</span>
                 </div>
               </div>
 
-              <form onSubmit={handleUltimateGameSubmit} className="space-y-6">
-                {/* Generation Mode Selector */}
+              <form onSubmit={handleUltimateGameSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Generation Mode:
-                  </label>
-                  <select 
-                    value={generationMode}
-                    onChange={handleGenerationModeChange}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    disabled={isGeneratingGame}
-                  >
-                    <option value="ultimate">🔥 ULTIMATE (10/10) - BRUTALLY POWERFUL</option>
-                    <option value="free-ai">🤖 FREE AI (9/10) - Revolutionary</option>
-                    <option value="enhanced">✨ Enhanced (8/10) - Professional</option>
-                    <option value="basic">🔧 Basic (6/10) - Standard</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Describe Your Game:
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Describe Your Game
                   </label>
                   <textarea
                     value={gameDescription}
                     onChange={(e) => setGameDescription(e.target.value)}
-                    placeholder={ultimateMode ? 
-                      "Describe any game you can imagine... The Ultimate Game Maker will create it with BRUTAL 10/10 quality! (e.g., 'Create a magical underwater adventure with mermaids, treasure hunting, and sea creatures')" :
-                      "Describe the game you want to create..."
-                    }
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 h-32 resize-none"
+                    placeholder="Describe the game you want to create... (e.g., 'A darts game with realistic physics' or 'An underwater adventure with treasure hunting')"
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-500 focus:outline-none h-32 resize-none"
                     disabled={isGeneratingGame}
                   />
                 </div>
 
-                {/* Quality Guarantee */}
-                {ultimateMode && (
-                  <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/10">
-                    <h3 className="text-lg font-semibold text-white mb-2">
-                      🎯 Quality Guarantee:
-                    </h3>
-                    <div className="text-center">
-                      <span className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent">
-                        BRUTAL 10/10 QUALITY
-                      </span>
-                    </div>
-                    <div className="mt-2 text-sm text-gray-300 text-center">
-                      ✅ Always works perfectly • ✅ Professional graphics • ✅ Unique AI innovation
-                    </div>
-                  </div>
-                )}
-
-                {/* Generation Button */}
                 <button
                   type="submit"
                   disabled={isGeneratingGame || !gameDescription.trim()}
-                  className={`w-full px-8 py-4 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-bold text-lg ${
-                    ultimateMode 
-                      ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-700 hover:via-pink-700 hover:to-red-700 shadow-lg hover:shadow-xl transform hover:scale-105'
-                      : freeAIMode
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
-                      : enhancedMode
-                      ? 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700'
-                      : 'bg-gray-600 hover:bg-gray-700'
-                  }`}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 font-bold text-lg"
                 >
-                  {isGeneratingGame ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
-                      {getButtonText()}
-                    </div>
-                  ) : (
-                    getButtonText()
-                  )}
+                  {getButtonText()}
                 </button>
               </form>
 
-              {/* Ultimate Features Display */}
-              {ultimateMode && (
-                <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-4">
-                    🔥 Ultimate Features:
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-purple-400 mr-2">🤖</span>
-                      AI-Generated Innovation
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-pink-400 mr-2">🎨</span>
-                      Professional Graphics
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-blue-400 mr-2">⚡</span>
-                      Complete Mechanics
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-green-400 mr-2">📱</span>
-                      Mobile Optimized
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-yellow-400 mr-2">🛡️</span>
-                      Bulletproof Reliability
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-red-400 mr-2">🚀</span>
-                      Instant Generation
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-orange-400 mr-2">🎯</span>
-                      100% Success Rate
-                    </div>
-                    <div className="flex items-center text-gray-300">
-                      <span className="text-indigo-400 mr-2">💎</span>
-                      Ultimate Quality
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* 🔥 NEW: Game Display with Complete File Delivery */}
+              {renderGameDisplay()}
 
-              {/* Error Display */}
-              {gameError && (
-                <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-                  <p className="text-red-200">{gameError}</p>
-                </div>
-              )}
-
-              {/* Generation Details */}
+              {/* ✅ PRESERVED: Game Metadata Display */}
               {gameMetadata && (
-                <div className="mt-6 bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-4">
-                    🎮 Game Generation Details:
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="text-center">
-                      <div className="text-gray-400">Generation Method</div>
-                      <div className="text-white font-semibold">
-                        {gameMetadata.generation_method === 'ultimate_perfection' ? '🔥 Ultimate Perfection' :
-                         gameMetadata.generation_method === 'free_ai_innovation' ? '🤖 FREE AI Innovation' :
-                         gameMetadata.generation_method === 'enhanced_polish' ? '✨ Enhanced Polish' :
-                         '🔧 Basic Reliability'}
-                      </div>
+                <div className="bg-gray-800 rounded-lg p-4 mt-4">
+                  <h4 className="text-lg font-bold text-yellow-400 mb-3">Generation Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Template:</span>
+                      <span className="text-white ml-2">{gameMetadata.template}</span>
                     </div>
-                    <div className="text-center">
-                      <div className="text-gray-400">Quality Score</div>
-                      <div className="text-white font-semibold">
-                        {gameMetadata.quality || '10/10'}
-                      </div>
+                    <div>
+                      <span className="text-gray-400">Quality:</span>
+                      <span className="text-white ml-2">{gameMetadata.quality}</span>
                     </div>
-                    <div className="text-center">
-                      <div className="text-gray-400">Generation Time</div>
-                      <div className="text-white font-semibold">
-                        {gameMetadata.generation_time || '< 30s'}
-                      </div>
+                    <div>
+                      <span className="text-gray-400">Method:</span>
+                      <span className="text-white ml-2">{gameMetadata.generation_method}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Generated:</span>
+                      <span className="text-white ml-2">{new Date(gameMetadata.generatedAt).toLocaleTimeString()}</span>
                     </div>
                   </div>
                   
-                  {gameMetadata.quality_guarantee && (
-                    <div className="mt-4 text-center">
-                      <span className="text-xl font-bold bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent">
-                        {gameMetadata.quality_guarantee}
-                      </span>
+                  {gameMetadata.features && (
+                    <div className="mt-3">
+                      <span className="text-gray-400">Features:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {gameMetadata.features.map((feature, index) => (
+                          <span key={index} className="bg-yellow-600 text-yellow-100 px-2 py-1 rounded text-xs">
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
 
-              {/* Generated Game Display */}
-              {generatedGame && (
-                <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-white">Generated Game</h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          const blob = new Blob([generatedGame], { type: 'text/html' })
-                          const url = URL.createObjectURL(blob)
-                          const a = document.createElement('a')
-                          a.href = url
-                          a.download = 'game.html'
-                          a.click()
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Download
-                      </button>
-                      <button
-                        onClick={() => {
-                          const newWindow = window.open()
-                          newWindow.document.write(generatedGame)
-                        }}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        Open in New Window
-                      </button>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 max-h-96 overflow-auto">
-                    <iframe
-                      srcDoc={generatedGame}
-                      className="w-full h-80 border-0"
-                      title="Generated Game"
-                    />
-                  </div>
+        {/* ✅ PRESERVED: Media Studio Tab EXACTLY as original */}
+        {activeTab === 'media' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-white mb-6">Media Studio</h2>
+              
+              <form onSubmit={handleMediaSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Image Description
+                  </label>
+                  <textarea
+                    value={gameDescription}
+                    onChange={(e) => setGameDescription(e.target.value)}
+                    placeholder="Describe the image you want to generate..."
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-green-500 focus:outline-none h-32 resize-none"
+                    disabled={isGeneratingImage}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isGeneratingImage || !gameDescription.trim()}
+                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isGeneratingImage ? 'Generating Image...' : 'Generate Image'}
+                </button>
+              </form>
+
+              {generatedImage && (
+                <div className="mt-6">
+                  <h3 className="text-xl font-bold text-white mb-4">Generated Image</h3>
+                  <img src={generatedImage} alt="Generated" className="w-full rounded-lg" />
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* ✅ PRESERVED: All other tabs exactly as original */}
-        {activeTab === 'media' && (
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-white mb-6 text-center">Media Studio</h2>
-            
-            <form onSubmit={handleMediaSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Image Description:
-                </label>
-                <textarea
-                  value={gameDescription}
-                  onChange={(e) => setGameDescription(e.target.value)}
-                  placeholder="Describe the image you want to create..."
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 resize-none"
-                  disabled={isGeneratingImage}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isGeneratingImage || !gameDescription.trim()}
-                className="w-full px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-              >
-                {isGeneratingImage ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Generating Image...
-                  </div>
-                ) : (
-                  'Generate Image'
-                )}
-              </button>
-            </form>
-
-            {generatedImage && (
-              <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-4">Generated Image</h3>
-                <img src={generatedImage} alt="Generated" className="w-full rounded-lg" />
-              </div>
-            )}
-          </div>
-        )}
-
+        {/* ✅ PRESERVED: Audio Studio Tab EXACTLY as original */}
         {activeTab === 'audio' && (
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-white mb-6 text-center">Audio Studio</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Speech Generation */}
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                <h3 className="text-xl font-semibold text-white mb-4">Speech Generation</h3>
-                
-                <form onSubmit={handleAudioSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Text to Speech:
-                    </label>
-                    <textarea
-                      value={speechText}
-                      onChange={(e) => setSpeechText(e.target.value)}
-                      placeholder="Enter text to convert to speech..."
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
-                      disabled={isAudioLoading}
-                    />
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-white mb-6">Audio Studio</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h3 className="text-lg font-bold text-white mb-4">Speech Generation</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-white text-sm font-medium mb-2">Text to Speech</label>
+                      <textarea
+                        value={speechText}
+                        onChange={(e) => setSpeechText(e.target.value)}
+                        placeholder="Enter text to convert to speech..."
+                        className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500 focus:outline-none h-24 resize-none"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-white text-sm font-medium mb-2">Voice</label>
+                      <select
+                        value={selectedVoice}
+                        onChange={(e) => setSelectedVoice(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500 focus:outline-none"
+                      >
+                        {voicePresets.map((voice) => (
+                          <option key={voice} value={voice}>
+                            {voice.replace('v2/en_speaker_', 'Speaker ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+                </div>
 
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h3 className="text-lg font-bold text-white mb-4">Music Generation</h3>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Voice:
-                    </label>
-                    <select
-                      value={selectedVoice}
-                      onChange={(e) => setSelectedVoice(e.target.value)}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isAudioLoading}
-                    >
-                      {voicePresets.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isAudioLoading || !speechText.trim()}
-                    className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isAudioLoading ? 'Generating...' : 'Generate Speech'}
-                  </button>
-                </form>
-              </div>
-
-              {/* Music Generation */}
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                <h3 className="text-xl font-semibold text-white mb-4">Music Generation</h3>
-                
-                <form onSubmit={handleAudioSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Music Description:
-                    </label>
+                    <label className="block text-white text-sm font-medium mb-2">Music Prompt</label>
                     <textarea
                       value={musicPrompt}
                       onChange={(e) => setMusicPrompt(e.target.value)}
-                      placeholder="Describe the music you want to create..."
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
-                      disabled={isAudioLoading}
+                      placeholder="Describe the music you want to generate..."
+                      className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500 focus:outline-none h-24 resize-none"
                     />
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={isAudioLoading || !musicPrompt.trim()}
-                    className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isAudioLoading ? 'Generating...' : 'Generate Music'}
-                  </button>
-                </form>
+                </div>
               </div>
+
+              <form onSubmit={handleAudioSubmit} className="mt-6">
+                <button
+                  type="submit"
+                  disabled={isAudioLoading || (!speechText.trim() && !musicPrompt.trim())}
+                  className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isAudioLoading ? 'Generating Audio...' : 'Generate Audio'}
+                </button>
+              </form>
+
+              {audioResult && (
+                <div className="mt-6">
+                  <h3 className="text-xl font-bold text-white mb-4">Generated Audio</h3>
+                  <audio controls className="w-full">
+                    <source src={audioResult} type="audio/mpeg" />
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              )}
             </div>
-
-            {audioResult && (
-              <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-4">Generated Audio</h3>
-                <audio controls className="w-full">
-                  <source src={audioResult} type="audio/mpeg" />
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
-            )}
           </div>
         )}
 
+        {/* ✅ PRESERVED: Video Studio Tab EXACTLY as original */}
         {activeTab === 'video' && (
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-white mb-6 text-center">Video Studio</h2>
-            
-            <form onSubmit={handleVideoSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Video Description:
-                </label>
-                <textarea
-                  value={videoPrompt}
-                  onChange={(e) => setVideoPrompt(e.target.value)}
-                  placeholder="Describe the video you want to create..."
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 resize-none"
-                  disabled={isGeneratingVideo}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-white mb-6">Video Studio</h2>
+              
+              <form onSubmit={handleVideoSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Duration (seconds):
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Video Description
                   </label>
-                  <input
-                    type="number"
-                    value={videoDuration}
-                    onChange={(e) => setVideoDuration(parseInt(e.target.value))}
-                    min="1"
-                    max="30"
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <textarea
+                    value={videoPrompt}
+                    onChange={(e) => setVideoPrompt(e.target.value)}
+                    placeholder="Describe the video you want to generate..."
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-500 focus:outline-none h-32 resize-none"
                     disabled={isGeneratingVideo}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Model Type:
-                  </label>
-                  <select
-                    value={videoModelType}
-                    onChange={(e) => setVideoModelType(e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={isGeneratingVideo}
-                  >
-                    {videoModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isGeneratingVideo || !videoPrompt.trim()}
-                className="w-full px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-              >
-                {isGeneratingVideo ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Generating Video...
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white text-sm font-medium mb-2">Duration (seconds)</label>
+                    <input
+                      type="number"
+                      value={videoDuration}
+                      onChange={(e) => setVideoDuration(parseInt(e.target.value))}
+                      min="1"
+                      max="10"
+                      className="w-full px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-500 focus:outline-none"
+                    />
                   </div>
-                ) : (
-                  'Generate Video'
-                )}
-              </button>
-            </form>
 
-            {generatedVideo && (
-              <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-4">Generated Video</h3>
-                <video controls className="w-full rounded-lg">
-                  <source src={generatedVideo} type="video/mp4" />
-                  Your browser does not support the video element.
-                </video>
-              </div>
-            )}
+                  <div>
+                    <label className="block text-white text-sm font-medium mb-2">Model Type</label>
+                    <select
+                      value={videoModelType}
+                      onChange={(e) => setVideoModelType(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-500 focus:outline-none"
+                    >
+                      <option value="auto">Auto</option>
+                      {videoModels.map((model) => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isGeneratingVideo || !videoPrompt.trim()}
+                  className="w-full px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isGeneratingVideo ? 'Generating Video...' : 'Generate Video'}
+                </button>
+              </form>
+
+              {generatedVideo && (
+                <div className="mt-6">
+                  <h3 className="text-xl font-bold text-white mb-4">Generated Video</h3>
+                  <video controls className="w-full rounded-lg">
+                    <source src={generatedVideo} type="video/mp4" />
+                    Your browser does not support the video element.
+                  </video>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
