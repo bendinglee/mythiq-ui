@@ -1,0 +1,324 @@
+/* Mythiq Updated Styles - Enhanced UI for Fixed Components */
+
+/* AI Assistant Styles */
+.ai-chat-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    background-color: #f9fafb;
+    margin-bottom: 16px;
+}
+
+.message {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 80%;
+}
+
+.user-message {
+    background-color: #3b82f6;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+}
+
+.assistant-message {
+    background-color: #e5e7eb;
+    color: #374151;
+    margin-right: auto;
+}
+
+.message-content p {
+    margin: 4px 0 0 0;
+    line-height: 1.4;
+}
+
+/* Input and Button Styles */
+.mythiq-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.mythiq-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mythiq-button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 14px;
+}
+
+.mythiq-button:hover:not(:disabled) {
+    background-color: #2563eb;
+}
+
+.mythiq-button:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* Media Studio Styles */
+.media-studio-section {
+    background-color: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.media-studio-section h3 {
+    margin: 0 0 16px 0;
+    color: #1f2937;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: #374151;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 14px;
+}
+
+/* Result Containers */
+.result-container {
+    margin-top: 20px;
+    padding: 16px;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    text-align: center;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f9fafb;
+}
+
+.result-container.has-content {
+    border-style: solid;
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+.result-container img,
+.result-container video {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.result-container audio {
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Loading States */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f4f6;
+    border-radius: 50%;
+    border-top-color: #3b82f6;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Notification Styles */
+.mythiq-notification {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Tab Navigation Styles */
+.tab-navigation {
+    display: flex;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 24px;
+}
+
+.tab-button {
+    padding: 12px 24px;
+    border: none;
+    background: none;
+    color: #6b7280;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-button.active {
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+}
+
+.tab-button:hover {
+    color: #374151;
+}
+
+/* Game Generation Styles */
+.game-result-container {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background-color: white;
+}
+
+.game-preview {
+    width: 100%;
+    height: 400px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.game-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.game-actions button {
+    flex: 1;
+    min-width: 120px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .media-studio-section {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .game-actions {
+        flex-direction: column;
+    }
+    
+    .game-actions button {
+        width: 100%;
+    }
+    
+    .tab-navigation {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .tab-button {
+        flex-shrink: 0;
+    }
+}
+
+/* Status Indicators */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-healthy {
+    background-color: #10b981;
+}
+
+.status-unhealthy {
+    background-color: #ef4444;
+}
+
+.status-loading {
+    background-color: #f59e0b;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Enhanced Form Styling */
+.enhanced-form {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.enhanced-form-inner {
+    background: white;
+    padding: 24px;
+    border-radius: 10px;
+}
+
+/* Success/Error States */
+.success-state {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+.error-state {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.success-message {
+    color: #065f46;
+    background-color: #d1fae5;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 12px;
+}
+
+.error-message {
+    color: #991b1b;
+    background-color: #fee2e2;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 12px;
+}
