@@ -4,12 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Bot, Gamepad2, Image, Music, Video, BarChart3 } from 'lucide-react'
-import Dashboard from './components/Dashboard'
-import AIAssistant from './components/AIAssistant'
-import GameCreator from './components/GameCreator'
-import MediaStudio from './components/MediaStudio'
-import AudioStudio from './components/AudioStudio'
-import VideoStudio from './components/VideoStudio'
+import Dashboard from './components/Dashboard.jsx'
+import AIAssistant from './components/AIAssistant.jsx'
+import GameCreator from './components/GameCreator.jsx'
+import MediaStudio from './components/MediaStudio.jsx'
+import AudioStudio from './components/AudioStudio.jsx'
+import VideoStudio from './components/VideoStudio.jsx'
 import './App.css'
 
 function App() {
@@ -29,81 +29,81 @@ function App() {
               <p className="text-purple-300">AI Creative Platform</p>
             </div>
           </div>
-          <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
-            ✨ All Systems Operational
+          <Badge variant="secondary" className="bg-purple-500/20 text-purple-300">
+            <Bot className="w-3 h-3 mr-1" />
+            AI Powered
           </Badge>
         </div>
 
-        {/* Main Navigation Tabs */}
+        {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border border-slate-700">
+          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border-slate-700">
             <TabsTrigger 
               value="dashboard" 
-              className="flex items-center space-x-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
             >
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Dashboard</span>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Dashboard
             </TabsTrigger>
             <TabsTrigger 
-              value="assistant" 
-              className="flex items-center space-x-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              value="ai-assistant" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
-              <Bot className="w-4 h-4" />
-              <span className="hidden sm:inline">AI Assistant</span>
+              <Bot className="w-4 h-4 mr-2" />
+              AI Assistant
             </TabsTrigger>
             <TabsTrigger 
-              value="games" 
-              className="flex items-center space-x-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              value="game-creator" 
+              className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
             >
-              <Gamepad2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Game Creator</span>
+              <Gamepad2 className="w-4 h-4 mr-2" />
+              Ultimate Creator
             </TabsTrigger>
             <TabsTrigger 
-              value="media" 
-              className="flex items-center space-x-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              value="media-studio" 
+              className="data-[state=active]:bg-pink-600 data-[state=active]:text-white"
             >
-              <Image className="w-4 h-4" />
-              <span className="hidden sm:inline">Media Studio</span>
+              <Image className="w-4 h-4 mr-2" />
+              Media Studio
             </TabsTrigger>
             <TabsTrigger 
-              value="audio" 
-              className="flex items-center space-x-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              value="audio-studio" 
+              className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white"
             >
-              <Music className="w-4 h-4" />
-              <span className="hidden sm:inline">Audio Studio</span>
+              <Music className="w-4 h-4 mr-2" />
+              Audio Studio
             </TabsTrigger>
             <TabsTrigger 
-              value="video" 
-              className="flex items-center space-x-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              value="video-studio" 
+              className="data-[state=active]:bg-red-600 data-[state=active]:text-white"
             >
-              <Video className="w-4 h-4" />
-              <span className="hidden sm:inline">Video Studio</span>
+              <Video className="w-4 h-4 mr-2" />
+              Video Studio
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab Content */}
           <div className="mt-6">
             <TabsContent value="dashboard" className="space-y-6">
               <Dashboard />
             </TabsContent>
 
-            <TabsContent value="assistant" className="space-y-6">
+            <TabsContent value="ai-assistant" className="space-y-6">
               <AIAssistant />
             </TabsContent>
 
-            <TabsContent value="games" className="space-y-6">
+            <TabsContent value="game-creator" className="space-y-6">
               <GameCreator />
             </TabsContent>
 
-            <TabsContent value="media" className="space-y-6">
+            <TabsContent value="media-studio" className="space-y-6">
               <MediaStudio />
             </TabsContent>
 
-            <TabsContent value="audio" className="space-y-6">
+            <TabsContent value="audio-studio" className="space-y-6">
               <AudioStudio />
             </TabsContent>
 
-            <TabsContent value="video" className="space-y-6">
+            <TabsContent value="video-studio" className="space-y-6">
               <VideoStudio />
             </TabsContent>
           </div>
