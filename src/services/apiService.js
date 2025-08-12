@@ -1,8 +1,7 @@
 // Fixed API Service for Mythiq Platform
 // Handles all backend API communications with mythiq-agent service
-// Author: Manus AI
 // Date: August 12, 2025
-// Version: 2.0 - Complete Fix for Endpoint Mismatch
+// Version: 2.1 - CRITICAL BUG FIX for Chat Response Processing
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://mythiq-agent-production.up.railway.app'
 
@@ -36,7 +35,7 @@ class ApiService {
     }
   }
 
-  // AI Assistant Methods - Uses /chat endpoint
+  // AI Assistant Methods - FIXED RESPONSE PROCESSING BUG
   async sendChatMessage(message, conversationId = null) {
     try {
       const response = await this.request('/chat', {
@@ -46,24 +45,34 @@ class ApiService {
         })
       })
 
-      // Handle the actual response format from mythiq-agent
-      if (response.success && response.message) {
+      // CRITICAL FIX: Handle the actual response format from mythiq-agent
+      // Backend returns: {"message":"No response","service":"assistant","success":true}
+      // This is a VALID response when AI service is not configured with API keys
+      if (response.success) {
+        let displayMessage = response.message
+        
+        // Provide helpful message when AI service is not configured
+        if (response.message === "No response") {
+          displayMessage = "I'm currently being configured with AI capabilities. Please check back soon, or contact support to enable full AI functionality!"
+        }
+        
         return {
           id: Date.now(),
-          message: response.message === "No response" ? 
-            "I'm currently experiencing connectivity issues. Please try again in a moment." : 
-            response.message,
-          timestamp: new Date().toISOString()
+          message: displayMessage,
+          timestamp: new Date().toISOString(),
+          service: response.service || 'assistant'
         }
       } else {
-        throw new Error('Chat service unavailable')
+        // Only throw error if backend actually reports failure
+        throw new Error('Chat service reported failure')
       }
     } catch (error) {
       console.error('Chat request failed:', error)
       return {
         id: Date.now(),
-        message: "Sorry, I encountered an error. Please try again.",
-        timestamp: new Date().toISOString()
+        message: "I'm experiencing technical difficulties. Please try again in a moment, or contact support if the issue persists.",
+        timestamp: new Date().toISOString(),
+        service: 'error'
       }
     }
   }
@@ -133,7 +142,8 @@ class ApiService {
           status: "completed",
           prompt: imageResult.original_prompt || imageData.prompt,
           enhancedPrompt: imageResult.enhanced_prompt,
-          source: imageResult.source || "ai-generated"
+          source: imageResult.source || "ai-generated",
+          message: imageResult.message // Include any status messages from backend
         }
       } else {
         throw new Error('Image generation failed')
