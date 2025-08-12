@@ -1,152 +1,120 @@
-// API Service for Mythiq Platform
-// Handles all backend communication
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.mythiq.ai'
+// Fixed API Service for Mythiq Platform
+// Uses the unified agent gateway instead of individual microservices
 
 class ApiService {
   constructor() {
-    this.baseURL = API_BASE_URL
+    // Use the unified agent gateway
+    this.baseURL = 'https://mythiq-agent-production.up.railway.app'
     this.headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_API_KEY || 'demo-key'}`
+      'Accept': 'application/json'
     }
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`
-    const config = {
-      headers: this.headers,
-      ...options
-    }
-
     try {
+      const url = `${this.baseURL}${endpoint}`
+      const config = {
+        headers: this.headers,
+        ...options
+      }
+
       const response = await fetch(url, config)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      
-      return await response.json()
+
+      const data = await response.json()
+      return data
     } catch (error) {
       console.error('API request failed:', error)
-      
-      // Return mock data for development
-      return this.getMockResponse(endpoint, options)
+      throw error
     }
   }
 
-  // Mock responses for development/demo
-  getMockResponse(endpoint, options) {
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-    
-    if (endpoint.includes('/chat')) {
-      return delay(1000).then(() => ({
-        success: true,
-        data: {
-          message: "I'm here to help you with your creative projects! I can assist with game development, image creation, audio production, and video generation. What would you like to work on today?",
-          timestamp: new Date().toISOString()
-        }
-      }))
-    }
-    
-    if (endpoint.includes('/generate/game')) {
-      return delay(3000).then(() => ({
-        success: true,
-        data: {
-          gameId: 'game_' + Date.now(),
-          title: 'Generated Game',
-          description: 'Your AI-generated game is ready!',
-          playUrl: '#',
-          downloadUrl: '#'
-        }
-      }))
-    }
-    
-    if (endpoint.includes('/generate/image')) {
-      return delay(2000).then(() => ({
-        success: true,
-        data: {
-          imageId: 'img_' + Date.now(),
-          imageUrl: 'https://via.placeholder.com/1024x1024/6366f1/ffffff?text=AI+Generated+Image',
-          downloadUrl: '#'
-        }
-      }))
-    }
-    
-    if (endpoint.includes('/generate/audio')) {
-      return delay(2500).then(() => ({
-        success: true,
-        data: {
-          audioId: 'audio_' + Date.now(),
-          audioUrl: '#',
-          duration: 30,
-          downloadUrl: '#'
-        }
-      }))
-    }
-    
-    if (endpoint.includes('/generate/video')) {
-      return delay(4000).then(() => ({
-        success: true,
-        data: {
-          videoId: 'video_' + Date.now(),
-          videoUrl: '#',
-          duration: 10,
-          downloadUrl: '#'
-        }
-      }))
-    }
-    
-    return Promise.resolve({
-      success: false,
-      error: 'Unknown endpoint'
-    })
+  // Health check
+  async checkHealth() {
+    return this.request('/health')
   }
 
-  // Chat API
-  async sendChatMessage(message) {
+  // Chat with AI Assistant
+  async chat(message) {
     return this.request('/chat', {
       method: 'POST',
       body: JSON.stringify({ message })
     })
   }
 
-  // Game Generation API
+  // Generate game using agent gateway
   async generateGame(gameData) {
-    return this.request('/generate/game', {
+    const message = `Create a ${gameData.type || 'puzzle'} game about ${gameData.description}. Make it ${gameData.difficulty || 'medium'} difficulty.`
+    
+    return this.request('/process', {
       method: 'POST',
-      body: JSON.stringify(gameData)
+      body: JSON.stringify({ message })
     })
   }
 
-  // Image Generation API
+  // Generate image using agent gateway
   async generateImage(imageData) {
-    return this.request('/generate/image', {
+    const message = `Generate an image: ${imageData.description}. Style: ${imageData.style || 'realistic'}. Size: ${imageData.size || 'medium'}.`
+    
+    return this.request('/process', {
       method: 'POST',
-      body: JSON.stringify(imageData)
+      body: JSON.stringify({ message })
     })
   }
 
-  // Audio Generation API
+  // Generate audio using agent gateway
   async generateAudio(audioData) {
-    return this.request('/generate/audio', {
+    let message
+    
+    if (audioData.type === 'music') {
+      message = `Generate music: ${audioData.description}. Genre: ${audioData.genre || 'ambient'}. Duration: ${audioData.duration || '30'} seconds.`
+    } else if (audioData.type === 'speech') {
+      message = `Generate speech: "${audioData.text}". Voice: ${audioData.voice || 'female'}. Language: ${audioData.language || 'english'}.`
+    } else {
+      message = `Generate audio: ${audioData.description}`
+    }
+    
+    return this.request('/process', {
       method: 'POST',
-      body: JSON.stringify(audioData)
+      body: JSON.stringify({ message })
     })
   }
 
-  // Video Generation API
+  // Generate video using agent gateway
   async generateVideo(videoData) {
-    return this.request('/generate/video', {
+    const message = `Generate a video: ${videoData.description}. Style: ${videoData.style || 'realistic'}. Duration: ${videoData.duration || '10'} seconds.`
+    
+    return this.request('/process', {
       method: 'POST',
-      body: JSON.stringify(videoData)
+      body: JSON.stringify({ message })
     })
   }
 
-  // Health Check
-  async healthCheck() {
-    return this.request('/health')
+  // Process any message through the agent
+  async processMessage(message) {
+    return this.request('/process', {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    })
   }
 }
 
-export default new ApiService()
+// Create singleton instance
+const apiService = new ApiService()
+
+export default apiService
+
+// Named exports for specific functions
+export const {
+  checkHealth,
+  chat,
+  generateGame,
+  generateImage,
+  generateAudio,
+  generateVideo,
+  processMessage
+} = apiService
