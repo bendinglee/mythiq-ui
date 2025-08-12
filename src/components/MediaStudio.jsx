@@ -2,56 +2,59 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Image, Sparkles, Download, Eye, Palette, Zap } from 'lucide-react'
-import { useApi } from '@/hooks/useApi'
+import { Image, Download, Sparkles, Palette, Zap } from 'lucide-react'
+import { useImageGeneration } from '@/hooks/useApi'
 
 const MediaStudio = () => {
-  const [imageDescription, setImageDescription] = useState('')
-  const [imageStyle, setImageStyle] = useState('realistic')
-  const [imageSize, setImageSize] = useState('1024x1024')
-  const { generateImage, isLoading } = useApi()
+  const [imageData, setImageData] = useState({
+    description: '',
+    style: 'realistic',
+    size: '1024x1024',
+    quality: 'high'
+  })
+  
+  const { generatedImage, generateImage, loading, error } = useImageGeneration()
 
   const handleGenerateImage = async () => {
-    if (!imageDescription.trim()) return
+    if (!imageData.description.trim()) return
     
-    await generateImage({
-      description: imageDescription,
-      style: imageStyle,
-      size: imageSize
-    })
+    try {
+      await generateImage(imageData)
+    } catch (error) {
+      console.error('Failed to generate image:', error)
+    }
   }
 
-  const imageStyles = [
-    { id: 'realistic', name: 'Realistic', description: 'Photorealistic images' },
-    { id: 'artistic', name: 'Artistic', description: 'Painterly and stylized' },
-    { id: 'cartoon', name: 'Cartoon', description: 'Fun and animated style' },
-    { id: 'abstract', name: 'Abstract', description: 'Creative and conceptual' },
-    { id: 'vintage', name: 'Vintage', description: 'Retro and classic look' },
-    { id: 'futuristic', name: 'Futuristic', description: 'Sci-fi and modern' }
+  const artStyles = [
+    { value: 'realistic', label: 'Realistic', description: 'Photorealistic images' },
+    { value: 'artistic', label: 'Artistic', description: 'Painterly style' },
+    { value: 'cartoon', label: 'Cartoon', description: 'Animated style' },
+    { value: 'abstract', label: 'Abstract', description: 'Abstract art' },
+    { value: 'vintage', label: 'Vintage', description: 'Retro aesthetic' },
+    { value: 'futuristic', label: 'Futuristic', description: 'Sci-fi style' }
   ]
 
   const imageSizes = [
-    { id: '512x512', name: 'Square (512x512)', description: 'Perfect for avatars' },
-    { id: '1024x1024', name: 'Large Square (1024x1024)', description: 'High quality square' },
-    { id: '1024x768', name: 'Landscape (1024x768)', description: 'Wide format' },
-    { id: '768x1024', name: 'Portrait (768x1024)', description: 'Tall format' }
+    { value: '512x512', label: '512×512', description: 'Square small' },
+    { value: '1024x1024', label: '1024×1024', description: 'Square large' },
+    { value: '1024x768', label: '1024×768', description: 'Landscape' },
+    { value: '768x1024', label: '768×1024', description: 'Portrait' }
   ]
 
   const examplePrompts = [
-    "A majestic mountain landscape at sunset with golden light",
-    "A futuristic city with flying cars and neon lights",
-    "A cute cartoon cat wearing a wizard hat and cape",
-    "An abstract painting with vibrant colors and flowing shapes"
+    "A majestic dragon soaring over a medieval castle at sunset",
+    "A futuristic cityscape with flying cars and neon lights",
+    "A serene forest path with magical glowing mushrooms",
+    "A steampunk airship floating above Victorian London",
+    "An underwater palace with coral gardens and tropical fish"
   ]
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-            <Image className="w-8 h-8 text-white" />
-          </div>
+        <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center mx-auto">
+          <Image className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-3xl font-bold text-white">Media Studio</h2>
         <p className="text-lg text-pink-300">Create stunning images with AI</p>
@@ -61,187 +64,179 @@ const MediaStudio = () => {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Image Creation Form */}
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Image Configuration */}
+        <div className="space-y-6">
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader>
-              <CardTitle className="text-white">Create Image</CardTitle>
+              <CardTitle className="text-white">Image Description</CardTitle>
               <CardDescription className="text-slate-400">
-                Describe your vision and watch AI bring it to life
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Image Description */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Image Description
-                </label>
-                <textarea
-                  value={imageDescription}
-                  onChange={(e) => setImageDescription(e.target.value)}
-                  placeholder="Describe the image you want to create..."
-                  className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  rows="4"
-                />
-              </div>
-
-              {/* Style Selection */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Art Style
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {imageStyles.map((style) => (
-                    <button
-                      key={style.id}
-                      onClick={() => setImageStyle(style.id)}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        imageStyle === style.id
-                          ? 'bg-pink-600/30 border-pink-500 text-pink-300'
-                          : 'bg-slate-700/30 border-slate-600 text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="font-medium">{style.name}</div>
-                      <div className="text-xs opacity-70">{style.description}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Size Selection */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Image Size
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {imageSizes.map((size) => (
-                    <button
-                      key={size.id}
-                      onClick={() => setImageSize(size.id)}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        imageSize === size.id
-                          ? 'bg-pink-600/30 border-pink-500 text-pink-300'
-                          : 'bg-slate-700/30 border-slate-600 text-slate-300 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="font-medium">{size.name}</div>
-                      <div className="text-xs opacity-70">{size.description}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Generate Button */}
-              <Button
-                onClick={handleGenerateImage}
-                disabled={!imageDescription.trim() || isLoading}
-                className="w-full bg-pink-600 hover:bg-pink-700 text-white py-3"
-              >
-                {isLoading ? (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Image...
-                  </>
-                ) : (
-                  <>
-                    <Image className="w-4 h-4 mr-2" />
-                    Generate Image
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Generated Image Preview */}
-          <Card className="bg-slate-800/50 border-slate-700 mt-6">
-            <CardHeader>
-              <CardTitle className="text-white">Generated Image</CardTitle>
-              <CardDescription className="text-slate-400">
-                Your AI-created image will appear here
+                Describe the image you want to create
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-slate-400">
-                <Image className="w-16 h-16 mx-auto mb-4 text-slate-500" />
-                <p>Generate an image to see the result</p>
-                <p className="text-sm mt-2">High-quality images created with advanced AI technology</p>
+              <textarea
+                value={imageData.description}
+                onChange={(e) => setImageData({...imageData, description: e.target.value})}
+                placeholder="A cute cartoon cat wearing a wizard hat and cape, sitting on a stack of magical books..."
+                className="w-full h-32 p-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none"
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white">Art Style</CardTitle>
+              <CardDescription className="text-slate-400">
+                Choose your preferred artistic style
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {artStyles.map((style) => (
+                  <button
+                    key={style.value}
+                    onClick={() => setImageData({...imageData, style: style.value})}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      imageData.style === style.value
+                        ? 'bg-pink-600 border-pink-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="font-medium">{style.label}</div>
+                    <div className="text-sm opacity-70">{style.description}</div>
+                  </button>
+                ))}
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white">Image Size</CardTitle>
+              <CardDescription className="text-slate-400">
+                Select dimensions for your image
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {imageSizes.map((size) => (
+                  <button
+                    key={size.value}
+                    onClick={() => setImageData({...imageData, size: size.value})}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      imageData.size === size.value
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="font-medium">{size.label}</div>
+                    <div className="text-sm opacity-70">{size.description}</div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Button
+            onClick={handleGenerateImage}
+            disabled={loading || !imageData.description.trim()}
+            className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white py-3"
+          >
+            {loading ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                <span>Generating Image...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-4 h-4" />
+                <span>Generate Image</span>
+              </div>
+            )}
+          </Button>
         </div>
 
-        {/* Sidebar */}
+        {/* Image Preview */}
         <div className="space-y-6">
-          {/* Example Prompts */}
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white">Generated Image</CardTitle>
+              <CardDescription className="text-slate-400">
+                Your AI-generated artwork will appear here
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {generatedImage ? (
+                <div className="space-y-4">
+                  <div className="aspect-square bg-slate-900 rounded-lg border-2 border-slate-600 overflow-hidden">
+                    <img 
+                      src={generatedImage.url} 
+                      alt={generatedImage.description}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                      <Zap className="w-4 h-4 mr-2" />
+                      Enhance
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="bg-slate-700/50 p-3 rounded-lg">
+                      <div className="text-slate-400">Style</div>
+                      <div className="text-white font-medium capitalize">{generatedImage.style}</div>
+                    </div>
+                    <div className="bg-slate-700/50 p-3 rounded-lg">
+                      <div className="text-slate-400">Size</div>
+                      <div className="text-white font-medium">{generatedImage.size}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="aspect-square bg-slate-900 rounded-lg border-2 border-dashed border-slate-600 flex items-center justify-center">
+                  <div className="text-center space-y-2">
+                    <Image className="w-12 h-12 text-slate-500 mx-auto" />
+                    <p className="text-slate-500">Describe your image and click Generate</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {error && (
+            <Card className="bg-red-900/20 border-red-700">
+              <CardContent className="pt-6">
+                <p className="text-red-400">Error: {error}</p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader>
               <CardTitle className="text-white text-lg">Example Prompts</CardTitle>
               <CardDescription className="text-slate-400">
-                Try these creative ideas
+                Click to try these ideas
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               {examplePrompts.map((prompt, index) => (
                 <button
                   key={index}
-                  onClick={() => setImageDescription(prompt)}
-                  className="w-full text-left p-3 bg-slate-700/30 hover:bg-slate-700/50 rounded-lg text-sm text-slate-300 transition-colors"
+                  onClick={() => setImageData({...imageData, description: prompt})}
+                  className="w-full text-left p-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-300 hover:text-white transition-colors"
                 >
                   {prompt}
                 </button>
               ))}
-            </CardContent>
-          </Card>
-
-          {/* Image Features */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white text-lg">Features</CardTitle>
-              <CardDescription className="text-slate-400">
-                What you get with AI images
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Zap className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm text-slate-300">Lightning fast generation</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Eye className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm text-slate-300">High resolution output</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Palette className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm text-slate-300">Multiple art styles</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Download className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-slate-300">Download ready</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white text-lg">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start border-slate-600 text-slate-300">
-                <Download className="w-4 h-4 mr-2" />
-                Download Image
-              </Button>
-              <Button variant="outline" className="w-full justify-start border-slate-600 text-slate-300">
-                <Eye className="w-4 h-4 mr-2" />
-                View Full Size
-              </Button>
-              <Button variant="outline" className="w-full justify-start border-slate-600 text-slate-300">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate Variations
-              </Button>
             </CardContent>
           </Card>
         </div>
