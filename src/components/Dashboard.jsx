@@ -1,114 +1,202 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { BarChart3, Users, Zap, TrendingUp, Activity, Star } from 'lucide-react'
+import { 
+  BarChart3, 
+  Users, 
+  Zap, 
+  TrendingUp, 
+  Activity, 
+  Clock, 
+  Star,
+  Gamepad2,
+  Image,
+  Music,
+  Video,
+  MessageCircle,
+  Sparkles
+} from 'lucide-react'
 
 const Dashboard = () => {
-  const stats = [
-    {
-      title: "Total Generations",
-      value: "2,847",
-      change: "+12%",
-      icon: Zap,
-      color: "text-blue-500"
+  const [stats, setStats] = useState({
+    totalGenerations: 1247,
+    activeUsers: 89,
+    successRate: 94.2,
+    avgResponseTime: 2.3
+  })
+
+  const [recentActivity, setRecentActivity] = useState([
+    { id: 1, type: 'game', title: 'Fantasy RPG Generated', time: '2 minutes ago', status: 'completed' },
+    { id: 2, type: 'image', title: 'Dragon Artwork Created', time: '5 minutes ago', status: 'completed' },
+    { id: 3, type: 'audio', title: 'Ambient Music Track', time: '8 minutes ago', status: 'completed' },
+    { id: 4, type: 'video', title: 'Nature Scene Video', time: '12 minutes ago', status: 'completed' },
+    { id: 5, type: 'chat', title: 'AI Assistant Conversation', time: '15 minutes ago', status: 'completed' }
+  ])
+
+  const quickActions = [
+    { 
+      title: 'Create Game', 
+      description: 'Generate a new game instantly',
+      icon: Gamepad2,
+      color: 'from-blue-500 to-purple-500',
+      action: 'game'
     },
-    {
-      title: "Active Users",
-      value: "1,234",
-      change: "+8%",
-      icon: Users,
-      color: "text-green-500"
+    { 
+      title: 'Generate Image', 
+      description: 'Create stunning artwork',
+      icon: Image,
+      color: 'from-pink-500 to-purple-500',
+      action: 'image'
     },
-    {
-      title: "Success Rate",
-      value: "98.5%",
-      change: "+2%",
-      icon: TrendingUp,
-      color: "text-purple-500"
+    { 
+      title: 'Make Music', 
+      description: 'Compose audio tracks',
+      icon: Music,
+      color: 'from-green-500 to-blue-500',
+      action: 'audio'
     },
-    {
-      title: "Avg Response Time",
-      value: "1.2s",
-      change: "-15%",
-      icon: Activity,
-      color: "text-orange-500"
+    { 
+      title: 'Create Video', 
+      description: 'Generate video content',
+      icon: Video,
+      color: 'from-red-500 to-pink-500',
+      action: 'video'
     }
   ]
 
-  const recentActivity = [
-    { type: "Game", title: "Space Adventure RPG", time: "2 minutes ago", status: "completed" },
-    { type: "Image", title: "Fantasy Landscape", time: "5 minutes ago", status: "completed" },
-    { type: "Audio", title: "Epic Battle Music", time: "8 minutes ago", status: "completed" },
-    { type: "Video", title: "Product Demo", time: "12 minutes ago", status: "processing" },
-    { type: "Chat", title: "AI Assistant Query", time: "15 minutes ago", status: "completed" }
+  const systemStatus = [
+    { service: 'AI Assistant', status: 'operational', uptime: '99.9%' },
+    { service: 'Game Creator', status: 'operational', uptime: '99.7%' },
+    { service: 'Media Studio', status: 'operational', uptime: '99.8%' },
+    { service: 'Audio Studio', status: 'operational', uptime: '99.6%' },
+    { service: 'Video Studio', status: 'operational', uptime: '99.5%' }
   ]
+
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'game': return <Gamepad2 className="w-4 h-4" />
+      case 'image': return <Image className="w-4 h-4" />
+      case 'audio': return <Music className="w-4 h-4" />
+      case 'video': return <Video className="w-4 h-4" />
+      case 'chat': return <MessageCircle className="w-4 h-4" />
+      default: return <Activity className="w-4 h-4" />
+    }
+  }
+
+  const getActivityColor = (type) => {
+    switch (type) {
+      case 'game': return 'text-blue-400'
+      case 'image': return 'text-pink-400'
+      case 'audio': return 'text-green-400'
+      case 'video': return 'text-red-400'
+      case 'chat': return 'text-purple-400'
+      default: return 'text-slate-400'
+    }
+  }
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
+      {/* Header */}
       <div className="text-center space-y-4">
-        <h2 className="text-4xl font-bold text-white">Welcome to Mythiq</h2>
-        <p className="text-xl text-purple-300">Your AI-powered creative platform</p>
-        <div className="flex justify-center space-x-2">
-          <Badge variant="secondary" className="bg-purple-500/20 text-purple-300">
-            <Star className="w-3 h-3 mr-1" />
-            Premium Plan
-          </Badge>
-          <Badge variant="secondary" className="bg-green-500/20 text-green-300">
-            All Systems Operational
-          </Badge>
+        <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto">
+          <BarChart3 className="w-8 h-8 text-white" />
         </div>
+        <h2 className="text-3xl font-bold text-white">Dashboard</h2>
+        <p className="text-lg text-purple-300">Your AI creative platform overview</p>
+        <Badge variant="secondary" className="bg-purple-500/20 text-purple-300">
+          <Sparkles className="w-3 h-3 mr-1" />
+          Real-time Analytics
+        </Badge>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-300">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
-              <p className="text-xs text-slate-400">
-                <span className="text-green-400">{stat.change}</span> from last month
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-400">Total Generations</CardTitle>
+            <Zap className="h-4 w-4 text-yellow-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats.totalGenerations.toLocaleString()}</div>
+            <p className="text-xs text-green-400 flex items-center mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              +12% from last month
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-400">Active Users</CardTitle>
+            <Users className="h-4 w-4 text-blue-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats.activeUsers}</div>
+            <p className="text-xs text-green-400 flex items-center mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              +8% from yesterday
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-400">Success Rate</CardTitle>
+            <Star className="h-4 w-4 text-green-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats.successRate}%</div>
+            <p className="text-xs text-green-400 flex items-center mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              +2.1% improvement
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-400">Avg Response Time</CardTitle>
+            <Clock className="h-4 w-4 text-purple-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats.avgResponseTime}s</div>
+            <p className="text-xs text-green-400 flex items-center mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              15% faster
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Quick Actions */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Quick Actions</CardTitle>
             <CardDescription className="text-slate-400">
-              Jump into your favorite creative tools
+              Jump into creating with one click
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <button className="p-4 bg-purple-600/20 border border-purple-500/30 rounded-lg hover:bg-purple-600/30 transition-colors">
-                <BarChart3 className="w-6 h-6 text-purple-400 mb-2" />
-                <div className="text-sm font-medium text-white">Generate Game</div>
-              </button>
-              <button className="p-4 bg-blue-600/20 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors">
-                <Zap className="w-6 h-6 text-blue-400 mb-2" />
-                <div className="text-sm font-medium text-white">Create Image</div>
-              </button>
-              <button className="p-4 bg-green-600/20 border border-green-500/30 rounded-lg hover:bg-green-600/30 transition-colors">
-                <Activity className="w-6 h-6 text-green-400 mb-2" />
-                <div className="text-sm font-medium text-white">Make Audio</div>
-              </button>
-              <button className="p-4 bg-orange-600/20 border border-orange-500/30 rounded-lg hover:bg-orange-600/30 transition-colors">
-                <TrendingUp className="w-6 h-6 text-orange-400 mb-2" />
-                <div className="text-sm font-medium text-white">Generate Video</div>
-              </button>
-            </div>
+            {quickActions.map((action, index) => {
+              const IconComponent = action.icon
+              return (
+                <Button
+                  key={index}
+                  variant="outline"
+                  className="w-full justify-start h-auto p-4 border-slate-600 hover:border-slate-500 bg-slate-700/50 hover:bg-slate-700"
+                >
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center mr-4`}>
+                    <IconComponent className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">{action.title}</div>
+                    <div className="text-sm text-slate-400">{action.description}</div>
+                  </div>
+                </Button>
+              )
+            })}
           </CardContent>
         </Card>
 
@@ -117,26 +205,25 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="text-white">Recent Activity</CardTitle>
             <CardDescription className="text-slate-400">
-              Your latest creations and interactions
+              Latest generations and interactions
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <div>
-                      <div className="text-sm font-medium text-white">{activity.title}</div>
-                      <div className="text-xs text-slate-400">{activity.type} • {activity.time}</div>
-                    </div>
+              {recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg">
+                  <div className={`${getActivityColor(activity.type)}`}>
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {activity.title}
+                    </p>
+                    <p className="text-xs text-slate-400">{activity.time}</p>
                   </div>
                   <Badge 
-                    variant={activity.status === 'completed' ? 'default' : 'secondary'}
-                    className={activity.status === 'completed' 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                    }
+                    variant="secondary" 
+                    className="bg-green-500/20 text-green-400 text-xs"
                   >
                     {activity.status}
                   </Badge>
@@ -152,22 +239,39 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle className="text-white">System Status</CardTitle>
           <CardDescription className="text-slate-400">
-            All Mythiq services are running smoothly
+            All services are operational
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-              <span className="text-sm text-slate-300">AI Assistant</span>
-              <Badge className="bg-green-500/20 text-green-400">Online</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-              <span className="text-sm text-slate-300">Media Generation</span>
-              <Badge className="bg-green-500/20 text-green-400">Online</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-              <span className="text-sm text-slate-300">Game Engine</span>
-              <Badge className="bg-green-500/20 text-green-400">Online</Badge>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {systemStatus.map((service, index) => (
+              <div key={index} className="bg-slate-700/30 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white">{service.service}</span>
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                </div>
+                <div className="text-xs text-slate-400">Uptime: {service.uptime}</div>
+                <div className="text-xs text-green-400 capitalize">{service.status}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Performance Chart Placeholder */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">Usage Analytics</CardTitle>
+          <CardDescription className="text-slate-400">
+            Generation activity over the last 7 days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64 bg-slate-900/50 rounded-lg border border-slate-600 flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <BarChart3 className="w-12 h-12 text-slate-500 mx-auto" />
+              <p className="text-slate-500">Analytics chart will be displayed here</p>
+              <p className="text-xs text-slate-600">Real-time data visualization</p>
             </div>
           </div>
         </CardContent>
