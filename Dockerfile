@@ -2,26 +2,29 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Install dependencies (including devDependencies for build)
+# Copy manifest & lockfile first for better layer caching
 COPY package*.json ./
+
+# Install deps exactly as locked
 RUN npm ci
 
-# Copy source code and build
+# Copy source and build
 COPY . .
 RUN npm run build
 
 # -------- Stage 2: Serve with Nginx --------
 FROM nginx:alpine
 
-# Copy build output to Nginx's web root
+# Copy build output to Nginx HTML directory
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Optional: Replace default Nginx config (tweak if needed for SPA routing)
+# Optional SPA-friendly routing config (uncomment COPY line if using nginx.conf)
 # COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Railway expects the app to bind to $PORT — map it to Nginx default (80)
+# Railway's dynamic port mapping
 ENV PORT=8080
 EXPOSE 8080
 
-# Update Nginx's default port to match Railway's $PORT
+# Map Nginx's port to Railway's $PORT on container start
 CMD ["sh", "-c", "sed -i \"s/listen       80;/listen       ${PORT};/\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+
