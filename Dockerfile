@@ -27,4 +27,3 @@ EXPOSE 8080
 
 # Map Nginx's port to Railway's $PORT on container start
 CMD ["sh", "-c", "sed -i \"s/listen       80;/listen       ${PORT};/\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
-
