@@ -1,30 +1,27 @@
-# Stage 1 — build
+# -------- Stage 1: Build the app --------
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Copy manifest & install deps (including devDeps for build)
+# Install dependencies (including devDependencies for build)
 COPY package*.json ./
 RUN npm ci
 
-# Copy the rest of your project & build
+# Copy source code and build
 COPY . .
 RUN npm run build
 
-# Stage 2 — serve
-FROM node:18-alpine AS runner
-WORKDIR /app
+# -------- Stage 2: Serve with Nginx --------
+FROM nginx:alpine
 
-# Install 'serve' globally for static hosting
-RUN npm install -g serve
+# Copy build output to Nginx's web root
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy built output from builder stage
-COPY --from=builder /app/dist ./dist
+# Optional: Replace default Nginx config (tweak if needed for SPA routing)
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Port Railway will bind automatically
+# Railway expects the app to bind to $PORT — map it to Nginx default (80)
 ENV PORT=8080
+EXPOSE 8080
 
-# Expose for local runs if needed
-EXPOSE $PORT
-
-# Start the static file server
-CMD ["serve", "-s", "dist", "-l", "0.0.0.0:$PORT"]
+# Update Nginx's default port to match Railway's $PORT
+CMD ["sh", "-c", "sed -i \"s/listen       80;/listen       ${PORT};/\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
