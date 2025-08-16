@@ -1,0 +1,498 @@
+name: Mythiq Platform Health Tests
+
+on:
+  # Trigger on push to main branch
+  push:
+    branches: [ main, master ]
+  
+  # Trigger on pull requests to main branch
+  pull_request:
+    branches: [ main, master ]
+  
+  # Scheduled runs every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      test_phases:
+        description: 'Test phases to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - infrastructure
+          - ai
+          - performance
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  # Test configuration
+  TEST_TIMEOUT: 30000
+  TEST_RETRIES: 3
+  TEST_CONCURRENCY: 5
+  TEST_PERFORMANCE_THRESHOLD: 5000
+
+jobs:
+  # =============================================================================
+  # BASH TESTING JOB
+  # =============================================================================
+  bash-health-tests:
+    name: Bash Health Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    strategy:
+      matrix:
+        test-phase: [infrastructure, ai, performance]
+      fail-fast: false
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Test Environment
+        run: |
+          # Create test results directory
+          mkdir -p test-results
+          
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y bc curl jq
+          
+          # Make scripts executable
+          chmod +x scripts/test-health.sh
+          
+      - name: Run Bash Health Tests - ${{ matrix.test-phase }}
+        id: bash-tests
+        run: |
+          echo "Running ${{ matrix.test-phase }} tests with bash script..."
+          
+          # Set test configuration
+          export TEST_VERBOSE=${{ github.event.inputs.verbose || 'false' }}
+          export CI=true
+          export TEST_OUTPUT_FORMAT=json
+          
+          # Run tests and capture exit code
+          set +e
+          ./scripts/test-health.sh --phases ${{ matrix.test-phase }} --ci --format json
+          TEST_EXIT_CODE=$?
+          set -e
+          
+          # Store exit code for later use
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Always continue to upload results
+          exit 0
+          
+      - name: Upload Bash Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bash-test-results-${{ matrix.test-phase }}
+          path: test-results/
+          retention-days: 30
+          
+      - name: Check Bash Test Status
+        if: steps.bash-tests.outputs.exit_code != '0'
+        run: |
+          echo "::error::Bash health tests failed for ${{ matrix.test-phase }} phase"
+          exit 1
+
+  # =============================================================================
+  # NODE.JS TESTING JOB
+  # =============================================================================
+  nodejs-health-tests:
+    name: Node.js Health Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+        test-phase: [infrastructure, ai, performance]
+      fail-fast: false
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install Dependencies
+        run: |
+          # Install any required npm packages for testing
+          npm install --only=dev
+          
+      - name: Setup Test Environment
+        run: |
+          # Create test results directory
+          mkdir -p test-results
+          
+          # Make scripts executable
+          chmod +x scripts/test-health.js
+          
+      - name: Run Node.js Health Tests - ${{ matrix.test-phase }}
+        id: nodejs-tests
+        run: |
+          echo "Running ${{ matrix.test-phase }} tests with Node.js ${{ matrix.node-version }}..."
+          
+          # Set test configuration
+          export TEST_VERBOSE=${{ github.event.inputs.verbose || 'false' }}
+          export CI=true
+          export TEST_OUTPUT_FORMAT=junit
+          
+          # Run tests and capture exit code
+          set +e
+          node scripts/test-health.js --phases ${{ matrix.test-phase }} --ci --format junit
+          TEST_EXIT_CODE=$?
+          set -e
+          
+          # Store exit code for later use
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Always continue to upload results
+          exit 0
+          
+      - name: Upload Node.js Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodejs-test-results-${{ matrix.node-version }}-${{ matrix.test-phase }}
+          path: test-results/
+          retention-days: 30
+          
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Node.js ${{ matrix.node-version }} Tests - ${{ matrix.test-phase }}
+          path: test-results/*.xml
+          reporter: java-junit
+          fail-on-error: false
+          
+      - name: Check Node.js Test Status
+        if: steps.nodejs-tests.outputs.exit_code != '0'
+        run: |
+          echo "::error::Node.js health tests failed for ${{ matrix.test-phase }} phase on Node.js ${{ matrix.node-version }}"
+          exit 1
+
+  # =============================================================================
+  # COMPREHENSIVE TESTING JOB
+  # =============================================================================
+  comprehensive-tests:
+    name: Comprehensive Platform Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [bash-health-tests, nodejs-health-tests]
+    if: always()
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Setup Test Environment
+        run: |
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y bc curl jq
+          
+          # Create test results directory
+          mkdir -p test-results
+          
+          # Make scripts executable
+          chmod +x scripts/test-health.sh
+          chmod +x scripts/test-health.js
+          
+          # Install npm dependencies
+          npm install --only=dev
+          
+      - name: Run Comprehensive Health Tests
+        id: comprehensive-tests
+        run: |
+          echo "Running comprehensive health tests..."
+          
+          # Set test configuration
+          export TEST_VERBOSE=${{ github.event.inputs.verbose || 'true' }}
+          export CI=true
+          export TEST_OUTPUT_FORMAT=json
+          
+          # Run bash tests
+          echo "=== Running Bash Tests ==="
+          set +e
+          ./scripts/test-health.sh --phases all --ci --format json --verbose
+          BASH_EXIT_CODE=$?
+          set -e
+          
+          # Run Node.js tests
+          echo "=== Running Node.js Tests ==="
+          set +e
+          node scripts/test-health.js --phases all --ci --format json --verbose
+          NODEJS_EXIT_CODE=$?
+          set -e
+          
+          # Store exit codes
+          echo "bash_exit_code=$BASH_EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "nodejs_exit_code=$NODEJS_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Determine overall status
+          if [ $BASH_EXIT_CODE -eq 0 ] && [ $NODEJS_EXIT_CODE -eq 0 ]; then
+            echo "overall_status=success" >> $GITHUB_OUTPUT
+            echo "✅ All comprehensive tests passed!"
+          else
+            echo "overall_status=failure" >> $GITHUB_OUTPUT
+            echo "❌ Some comprehensive tests failed!"
+            echo "Bash exit code: $BASH_EXIT_CODE"
+            echo "Node.js exit code: $NODEJS_EXIT_CODE"
+          fi
+          
+      - name: Download All Test Artifacts
+        uses: actions/download-artifact@v4
+        if: always()
+        with:
+          path: all-test-results/
+          
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          echo "# 🧪 Mythiq Platform Health Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results Overview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.comprehensive-tests.outputs.overall_status }}" = "success" ]; then
+            echo "✅ **Overall Status: PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All platform health tests completed successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Overall Status: FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Some platform health tests failed. Please review the detailed results." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Execution Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status | Exit Code |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|-----------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Bash test status
+          if [ "${{ steps.comprehensive-tests.outputs.bash_exit_code }}" = "0" ]; then
+            echo "| Bash Health Tests | ✅ PASSED | 0 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Bash Health Tests | ❌ FAILED | ${{ steps.comprehensive-tests.outputs.bash_exit_code }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Node.js test status
+          if [ "${{ steps.comprehensive-tests.outputs.nodejs_exit_code }}" = "0" ]; then
+            echo "| Node.js Health Tests | ✅ PASSED | 0 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Node.js Health Tests | ❌ FAILED | ${{ steps.comprehensive-tests.outputs.nodejs_exit_code }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Service Health Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following services were tested:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend (mythiq-ui)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🤖 Agent (mythiq-agent)" >> $GITHUB_STEP_SUMMARY
+          echo "- 💬 Assistant (mythiq-assistant)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎮 Game Maker (mythiq-game-maker)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎨 Media Creator (mythiq-media-creator)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎵 Audio Creator (mythiq-audio-creator)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎬 Video Creator (mythiq-video-creator)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚪 Gateway (mythiq-gateway)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧠 Self Learning AI (mythiq-self-learning-ai)" >> $GITHUB_STEP_SUMMARY
+          
+      - name: Upload Comprehensive Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comprehensive-test-results
+          path: |
+            test-results/
+            all-test-results/
+          retention-days: 30
+          
+      - name: Check Comprehensive Test Status
+        if: steps.comprehensive-tests.outputs.overall_status == 'failure'
+        run: |
+          echo "::error::Comprehensive health tests failed"
+          echo "Bash exit code: ${{ steps.comprehensive-tests.outputs.bash_exit_code }}"
+          echo "Node.js exit code: ${{ steps.comprehensive-tests.outputs.nodejs_exit_code }}"
+          exit 1
+
+  # =============================================================================
+  # SECURITY SCANNING JOB
+  # =============================================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # =============================================================================
+  # NOTIFICATION JOB
+  # =============================================================================
+  notify-results:
+    name: Notify Test Results
+    runs-on: ubuntu-latest
+    needs: [bash-health-tests, nodejs-health-tests, comprehensive-tests, security-scan]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    
+    steps:
+      - name: Determine Overall Status
+        id: status
+        run: |
+          # Check if any job failed
+          if [ "${{ needs.bash-health-tests.result }}" != "success" ] || \
+             [ "${{ needs.nodejs-health-tests.result }}" != "success" ] || \
+             [ "${{ needs.comprehensive-tests.result }}" != "success" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=❌ Mythiq Platform Health Tests Failed" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=✅ Mythiq Platform Health Tests Passed" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create Issue on Failure
+        if: steps.status.outputs.status == 'failure' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🚨 Scheduled Health Tests Failed';
+            const body = `
+            ## Health Test Failure Report
+            
+            **Timestamp:** ${new Date().toISOString()}
+            **Trigger:** Scheduled run
+            **Workflow:** ${context.workflow}
+            **Run ID:** ${context.runId}
+            
+            ### Failed Jobs:
+            - Bash Health Tests: ${{ needs.bash-health-tests.result }}
+            - Node.js Health Tests: ${{ needs.nodejs-health-tests.result }}
+            - Comprehensive Tests: ${{ needs.comprehensive-tests.result }}
+            - Security Scan: ${{ needs.security-scan.result }}
+            
+            ### Next Steps:
+            1. Review the [workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId}) for detailed logs
+            2. Check individual service health endpoints
+            3. Verify API key configurations
+            4. Review recent deployments for potential issues
+            
+            ### Auto-generated by GitHub Actions
+            This issue was automatically created due to scheduled health test failures.
+            `;
+            
+            // Check if similar issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['health-test-failure', 'automated']
+            });
+            
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['health-test-failure', 'automated', 'bug']
+              });
+            }
+            
+      # Optional: Slack notification (requires SLACK_WEBHOOK_URL secret)
+      - name: Slack Notification
+        if: always() && env.SLACK_WEBHOOK_URL
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.status.outputs.status }}
+          text: ${{ steps.status.outputs.message }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # =============================================================================
+  # CLEANUP JOB
+  # =============================================================================
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [bash-health-tests, nodejs-health-tests, comprehensive-tests, security-scan, notify-results]
+    if: always()
+    
+    steps:
+      - name: Cleanup Old Artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Keep only the last 10 workflow runs' artifacts
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: context.workflow,
+              per_page: 100
+            });
+            
+            const runsToCleanup = runs.data.workflow_runs.slice(10);
+            
+            for (const run of runsToCleanup) {
+              try {
+                const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id
+                });
+                
+                for (const artifact of artifacts.data.artifacts) {
+                  await github.rest.actions.deleteArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id
+                  });
+                }
+              } catch (error) {
+                console.log(`Failed to cleanup artifacts for run ${run.id}: ${error.message}`);
+              }
+            }
+            
+      - name: Summary
+        run: |
+          echo "🧹 Cleanup completed"
+          echo "📊 Test execution summary available in workflow summary"
+          echo "📁 Test artifacts retained for 30 days"
