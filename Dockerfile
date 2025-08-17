@@ -23,10 +23,10 @@ RUN set -e; \
             echo "✅ Strategy 1 SUCCESS: npm ci completed successfully"; \
         else \
             echo "⚠️ Strategy 1 FAILED: npm ci failed, trying fallback..."; \
-            rm -rf node_modules package-lock.json; \
+            rm -rf node_modules; \
             \
             # Strategy 2: Fresh npm install with legacy peer deps
-            echo "📦 Strategy 2: Attempting fresh npm install with legacy peer deps"; \
+            echo "🔄 Strategy 2: Attempting fresh npm install with legacy peer deps"; \
             if npm install --legacy-peer-deps --no-audit --no-fund; then \
                 echo "✅ Strategy 2 SUCCESS: npm install with legacy peer deps completed"; \
             else \
@@ -34,7 +34,7 @@ RUN set -e; \
                 rm -rf node_modules; \
                 \
                 # Strategy 3: Force installation (last resort)
-                echo "📦 Strategy 3: Force installation (last resort)"; \
+                echo "🚨 Strategy 3: Force installation (last resort)"; \
                 if npm install --force --no-audit --no-fund; then \
                     echo "✅ Strategy 3 SUCCESS: Force installation completed"; \
                 else \
@@ -64,14 +64,13 @@ RUN set -e; \
     echo "🏗️ Building Mythiq-UI application..."; \
     if npm run build; then \
         echo "✅ Build completed successfully"; \
-        ls -la dist/; \
     else \
         echo "❌ Build failed"; \
         exit 1; \
-    fi
-
-# Verify build output
-RUN if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then \
+    fi; \
+    \
+    # Verify build output
+    if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then \
         echo "❌ Build output directory is empty or missing"; \
         exit 1; \
     else \
@@ -87,8 +86,8 @@ RUN apk add --no-cache curl wget
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create custom nginx configuration for SPA
-RUN cat > /etc/nginx/nginx.conf << 'EOF'
+# Create custom nginx configuration for SPA (FIXED HEREDOC SYNTAX)
+RUN cat > /etc/nginx/nginx.conf <<EOF
 user nginx;
 worker_processes auto;
 error_log /var/log/nginx/error.log warn;
@@ -103,13 +102,14 @@ events {
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
-    
+
     # Logging
-    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                    '$status $body_bytes_sent "$http_referer" '
-                    '"$http_user_agent" "$http_x_forwarded_for"';
+    log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                    '\$status \$body_bytes_sent "\$http_referer" '
+                    '"\$http_user_agent" "\$http_x_forwarded_for"';
+
     access_log /var/log/nginx/access.log main;
-    
+
     # Performance optimizations
     sendfile on;
     tcp_nopush on;
@@ -117,7 +117,7 @@ http {
     keepalive_timeout 65;
     types_hash_max_size 2048;
     client_max_body_size 16M;
-    
+
     # Gzip compression
     gzip on;
     gzip_vary on;
@@ -134,76 +134,56 @@ http {
         application/xml+rss
         application/atom+xml
         image/svg+xml;
-    
+
+    # Security headers
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Referrer-Policy "strict-origin-when-cross-origin";
+
     server {
         listen 80;
         server_name _;
         root /usr/share/nginx/html;
         index index.html;
-        
-        # Security headers
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-XSS-Protection "1; mode=block" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "no-referrer-when-downgrade" always;
-        add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
-        
+
+        # Handle SPA routing - all routes go to index.html
+        location / {
+            try_files \$uri \$uri/ /index.html;
+        }
+
         # Cache static assets
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot )$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
         }
-        
-        # Handle SPA routing
-        location / {
-            try_files $uri $uri/ /index.html;
-        }
-        
+
         # Health check endpoint
         location /health {
             access_log off;
             return 200 "healthy\n";
             add_header Content-Type text/plain;
         }
-        
-        # API proxy (if needed)
-        location /api/ {
-            proxy_pass http://mythiq-agent-production.up.railway.app/;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_cache_bypass $http_upgrade;
+
+        # Security: Deny access to hidden files
+        location ~ /\. {
+            deny all;
         }
     }
 }
 EOF
 
+# Create health check script
+RUN echo '#!/bin/sh' > /usr/local/bin/health-check.sh && \
+    echo 'curl -f http://localhost/health || exit 1' >> /usr/local/bin/health-check.sh && \
+    chmod +x /usr/local/bin/health-check.sh
+
 # Expose port
 EXPOSE 80
 
-# Advanced health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost/health || wget -q --spider http://localhost/health || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD /usr/local/bin/health-check.sh
 
-# Create startup script with logging
-RUN cat > /docker-entrypoint.sh << 'EOF'
-#!/bin/sh
-echo "🚀 Starting Mythiq-UI production server..."
-echo "📊 Container info:"
-echo "   - Nginx version: $(nginx -v 2>&1)"
-echo "   - Build time: $(date)"
-echo "   - Files in /usr/share/nginx/html: $(ls -la /usr/share/nginx/html | wc -l) files"
-echo "   - Total size: $(du -sh /usr/share/nginx/html)"
-echo "✅ Starting nginx..."
-exec nginx -g "daemon off;"
-EOF
-
-RUN chmod +x /docker-entrypoint.sh
-
-# Use custom entrypoint
-ENTRYPOINT ["/docker-entrypoint.sh"]
-
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
