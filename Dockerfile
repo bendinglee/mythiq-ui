@@ -1,29 +1,45 @@
-# -------- Stage 1: Build the app --------
-FROM node:18-alpine AS builder
+# Multi-stage build with intelligent fallback for Mythiq-UI
+FROM node:18-alpine as builder
+
 WORKDIR /app
 
-# Copy manifest & lockfile first for better layer caching
+# Copy package files
 COPY package*.json ./
 
-# Install deps exactly as locked
-RUN npm ci
+# Smart installation with fallback logic
+# Try npm ci first (fastest, most reliable), fallback to npm install if needed
+RUN if [ -f package-lock.json ]; then \
+        echo "📦 Found package-lock.json - using npm ci for optimal performance" && \
+        npm ci --legacy-peer-deps || \
+        (echo "⚠️ npm ci failed - falling back to npm install" && \
+         npm install --legacy-peer-deps); \
+    else \
+        echo "📦 No package-lock.json found - using npm install" && \
+        npm install --legacy-peer-deps; \
+    fi
 
-# Copy source and build
+# Copy source code
 COPY . .
+
+# Build the application
 RUN npm run build
 
-# -------- Stage 2: Serve with Nginx --------
+# Production stage
 FROM nginx:alpine
 
-# Copy build output to Nginx HTML directory
+# Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Optional SPA-friendly routing config (uncomment COPY line if using nginx.conf)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx config if it exists
+COPY nginx.conf /etc/nginx/nginx.conf 2>/dev/null || echo "Using default nginx config"
 
-# Railway's dynamic port mapping
-ENV PORT=8080
-EXPOSE 8080
+# Expose port
+EXPOSE 80
 
-# Map Nginx's port to Railway's $PORT on container start
-CMD ["sh", "-c", "sed -i \"s/listen       80;/listen       ${PORT};/\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
+
