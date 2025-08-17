@@ -3,10 +3,8 @@
   "deploy": {
     "runtime": "V2",
     "numReplicas": 1,
-    "healthcheckPath": null,
     "sleepApplication": false,
     "restartPolicyType": "ON_FAILURE",
-    "healthcheckTimeout": 0,
     "restartPolicyMaxRetries": 10
   }
 }
